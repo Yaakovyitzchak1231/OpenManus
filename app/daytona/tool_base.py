@@ -19,7 +19,10 @@ daytona_config = DaytonaConfig(
     server_url=daytona_settings.daytona_server_url,
     target=daytona_settings.daytona_target,
 )
-daytona = Daytona(daytona_config)
+if daytona_config.api_key:
+    daytona = Daytona(daytona_config)
+else:
+    daytona = None
 
 
 @dataclass
@@ -136,3 +139,4 @@ class SandboxToolsBase(BaseTool):
         cleaned_path = clean_path(path, self.workspace_path)
         logger.debug(f"Cleaned path: {path} -> {cleaned_path}")
         return cleaned_path
+
