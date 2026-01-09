@@ -7,6 +7,7 @@ from app.agent.toolcall import ToolCallAgent
 from app.config import config
 from app.logger import logger
 from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
+from app.schema import Message
 from app.tool import Terminate, ToolCollection
 from app.tool.ask_human import AskHuman
 from app.tool.browser_use_tool import BrowserUseTool
@@ -165,6 +166,34 @@ class Manus(ToolCallAgent):
         if not self._initialized:
             await self.initialize_mcp_servers()
             self._initialized = True
+
+        # Phase 3: Self-Reflection Loop for High-Effort Mode
+        # Inject reflection prompt every 5 steps to encourage course correction
+        if hasattr(config, "agent") and config.agent:
+            enable_reflection = getattr(config.agent, "enable_reflection", False)
+            high_effort = getattr(config.agent, "high_effort_mode", False)
+
+            if enable_reflection and high_effort:
+                current_step = self.current_step
+                # Inject reflection every 5 steps (at steps 5, 10, 15, ...)
+                if current_step > 0 and current_step % 5 == 0:
+                    reflection_prompt = f"""
+## 🔄 Reflection Checkpoint (Step {current_step}/{self.max_steps})
+
+Before proceeding, take a moment to reflect:
+
+1. **Progress Review**: What have you accomplished in the last 5 steps?
+2. **Approach Validation**: Is your current approach working well, or should you adjust?
+3. **Quality Check**: Are you maintaining high quality standards (error handling, edge cases, testing)?
+4. **Remaining Work**: What remains to be done? Are you on track?
+5. **Improvements**: Are there better tools or methods you should use going forward?
+
+Briefly summarize your reflection, then continue with the next step.
+"""
+                    # Inject reflection as a system-level message
+                    reflection_msg = Message.system_message(reflection_prompt)
+                    self.memory.messages.append(reflection_msg)
+                    logger.info(f"💭 Injected reflection prompt at step {current_step}")
 
         original_prompt = self.next_step_prompt
         recent_messages = self.memory.messages[-3:] if self.memory.messages else []
