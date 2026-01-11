@@ -167,29 +167,57 @@ class MCPSettings(BaseModel):
     )
 
     @classmethod
-    def load_server_config(cls) -> Dict[str, MCPServerConfig]:
-        """Load MCP server configuration from JSON file"""
-        config_path = PROJECT_ROOT / "config" / "mcp.json"
+    def load_server_config(
+        cls, toml_servers: Optional[Dict] = None
+    ) -> Dict[str, MCPServerConfig]:
+        """
+        Load MCP server configuration from TOML (primary) and JSON (optional override).
 
-        try:
-            config_file = config_path if config_path.exists() else None
-            if not config_file:
-                return {}
+        Priority:
+        1. config.toml [mcp.servers.*] (primary source)
+        2. mcp.json (optional override/backward compatibility)
 
-            with config_file.open() as f:
-                data = json.load(f)
-                servers = {}
+        Args:
+            toml_servers: Server configs from TOML file
 
-                for server_id, server_config in data.get("mcpServers", {}).items():
+        Returns:
+            Dictionary of server_id -> MCPServerConfig
+        """
+        servers = {}
+
+        # Load from TOML first (primary source)
+        if toml_servers:
+            for server_id, server_config in toml_servers.items():
+                try:
                     servers[server_id] = MCPServerConfig(
-                        type=server_config["type"],
+                        type=server_config.get("type", "stdio"),
                         url=server_config.get("url"),
                         command=server_config.get("command"),
                         args=server_config.get("args", []),
                     )
-                return servers
-        except Exception as e:
-            raise ValueError(f"Failed to load MCP server config: {e}")
+                except Exception as e:
+                    print(
+                        f"Warning: Failed to load TOML config for server {server_id}: {e}"
+                    )
+
+        # Load from JSON as optional override/fallback
+        config_path = PROJECT_ROOT / "config" / "mcp.json"
+        if config_path.exists():
+            try:
+                with config_path.open() as f:
+                    data = json.load(f)
+                    for server_id, server_config in data.get("mcpServers", {}).items():
+                        servers[server_id] = MCPServerConfig(
+                            type=server_config["type"],
+                            url=server_config.get("url"),
+                            command=server_config.get("command"),
+                            args=server_config.get("args", []),
+                        )
+                        # MCP server loaded from mcp.json (overrides TOML if present)
+            except Exception as e:
+                print(f"Warning: Failed to load MCP config from mcp.json: {e}")
+
+        return servers
 
 
 class AppConfig(BaseModel):
@@ -323,8 +351,9 @@ class Config:
         mcp_config = raw_config.get("mcp", {})
         mcp_settings = None
         if mcp_config:
-            # Load server configurations from JSON
-            mcp_config["servers"] = MCPSettings.load_server_config()
+            # Extract servers from TOML and load with JSON override
+            toml_servers = mcp_config.get("servers", {})
+            mcp_config["servers"] = MCPSettings.load_server_config(toml_servers)
             mcp_settings = MCPSettings(**mcp_config)
         else:
             mcp_settings = MCPSettings(servers=MCPSettings.load_server_config())

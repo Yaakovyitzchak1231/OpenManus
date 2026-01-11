@@ -344,6 +344,11 @@ class PlanningFlow(BaseFlow):
 
             """
 
+            # Phase 3: Agent-based tool selection - inject tool context
+            tool_selection_hint = self._format_tool_selection_hint(executor, step_text)
+            if tool_selection_hint:
+                step_prompt += f"\n{tool_selection_hint}\n"
+            
             step_prompt += "Please execute this step using the appropriate tools. When done, provide a summary of what you accomplished.\n"
 
             # Use agent.run() to execute the step
@@ -566,3 +571,37 @@ class PlanningFlow(BaseFlow):
             except Exception as e2:
                 logger.error(f"Error finalizing plan with agent: {e2}")
                 return "Plan completed. Error generating summary."
+
+    def _format_tool_selection_hint(self, agent: BaseAgent, step_text: str) -> str:
+        """
+        Format tool selection hint for agent context.
+
+        Provides agent with information about available tools to make intelligent
+        routing decisions based on the current step requirements.
+
+        Args:
+            agent: The executor agent
+            step_text: Description of the current step
+
+        Returns:
+            Formatted tool selection hint or empty string if no tools available
+        """
+        if not hasattr(agent, 'available_tools') or not agent.available_tools:
+            return ""
+
+        tools_desc = []
+        for tool in agent.available_tools.tools:
+            # Format tool name and description
+            tools_desc.append(f"  - {tool.name}: {tool.description}")
+
+        if not tools_desc:
+            return ""
+
+        hint = f"""
+AVAILABLE TOOLS FOR THIS STEP:
+{chr(10).join(tools_desc)}
+
+For the specific task "{step_text}", consider which tools are most relevant.
+Use your judgment to select the best tools for accomplishing this step efficiently.
+"""
+        return hint

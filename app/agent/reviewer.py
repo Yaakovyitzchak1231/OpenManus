@@ -5,14 +5,19 @@ This agent implements the Reviewer role in a Doer-Critic self-correction loop,
 analyzing outputs for logic flaws, efficiency issues, and accuracy problems.
 """
 
+import re
+from pathlib import Path
 from typing import Optional
 
 from pydantic import Field
 
 from app.agent.base import BaseAgent
+from app.agent.toolcall import ToolCallAgent
 from app.llm import LLM
 from app.logger import logger
 from app.schema import AgentState, Message
+from app.tool import ToolCollection
+from app.tool.test_runner import TestRunner
 
 REVIEWER_SYSTEM_PROMPT = """You are a senior software auditor and code reviewer with expertise in:
 - Logic correctness and edge case analysis
@@ -55,6 +60,7 @@ Your role is to critically analyze outputs from other agents and provide constru
 - Are there tests? Do they cover edge cases?
 - Can the solution be easily tested?
 - Is there evidence the code was actually run and verified?
+- **If reviewing Python code with tests, use the test_runner tool to execute tests and validate functionality**
 
 ## Grading Standard
 
@@ -85,26 +91,37 @@ Be strict but fair. Thoughtful analysis produces better feedback.
 """
 
 
-class Reviewer(BaseAgent):
+class Reviewer(ToolCallAgent):
     """
     Reviewer/Critic agent for auditing task outputs.
 
     Provides structured feedback with PASS/FAIL grades and specific improvement suggestions.
+    Can use the test_runner tool to validate code with tests.
     """
 
     name: str = "Reviewer"
     description: str = (
-        "A senior auditor agent that reviews outputs for quality, correctness, and best practices"
+        "A senior auditor agent that reviews outputs for quality, correctness, and best practices. "
+        "Can run tests to validate code functionality."
     )
 
     system_prompt: str = REVIEWER_SYSTEM_PROMPT
     next_step_prompt: Optional[str] = None
 
-    max_steps: int = 1  # Reviewer only needs one step to provide feedback
+    max_steps: int = 3  # Allow up to 3 steps for: review, test, and final assessment
+
+    # Add test_runner tool for code validation
+    available_tools: ToolCollection = Field(
+        default_factory=lambda: ToolCollection(
+            TestRunner(),
+        )
+    )
 
     async def step(self) -> str:
         """
-        Execute a single review step.
+        Execute a single review step with optional test execution.
+
+        Auto-detects Python code files and runs tests when appropriate.
 
         Returns:
             Review feedback with grade and specific issues/suggestions.
@@ -117,28 +134,71 @@ class Reviewer(BaseAgent):
         if last_message.role != "user":
             return "Expected user message with content to review"
 
-        # Ask LLM for review
-        system_msg = Message.system_message(self.system_prompt)
+        content_to_review = last_message.content
 
-        try:
-            response = await self.llm.ask(
-                messages=[last_message], system_msgs=[system_msg], stream=False
-            )
+        # Auto-detect if we should run tests
+        test_file_path = self._detect_test_file(content_to_review)
 
-            # llm.ask() returns a string directly, not an object with .content
-            review_content = response if response else "No review generated"
+        if test_file_path and self.current_step == 0:
+            # First step: Run tests if test file detected
+            logger.info(f"Auto-detected test file: {test_file_path}. Running tests...")
 
-            # Add review to memory
-            self.update_memory("assistant", review_content)
+            try:
+                test_runner = TestRunner()
+                test_result = await test_runner.execute(
+                    test_path=test_file_path, test_args=["-v"]
+                )
 
-            # Mark as finished after one review
-            self.state = AgentState.FINISHED
+                # Add test results to review context
+                test_context = f"\n\n## Automated Test Results\n\n{test_result.output or test_result.error}\n"
+                enhanced_content = content_to_review + test_context
 
-            return review_content
+                # Update memory with test results
+                self.update_memory("user", enhanced_content)
 
-        except Exception as e:
-            logger.error(f"Reviewer error: {e}")
-            return f"Review failed: {str(e)}"
+                return f"✅ Tests executed. Proceeding with review incorporating test results."
+
+            except Exception as e:
+                logger.error(f"Failed to run tests: {e}")
+                # Continue with review even if tests fail
+
+        # Use parent class think() for tool-based reasoning
+        return await super().step()
+
+    def _detect_test_file(self, content: str) -> Optional[str]:
+        """
+        Detect if content references a test file that can be executed.
+
+        Args:
+            content: The content to review
+
+        Returns:
+            Path to test file if detected, None otherwise
+        """
+        # Look for common test file patterns
+        test_patterns = [
+            r"test_[\w]+\.py",  # test_filename.py
+            r"[\w]+_test\.py",  # filename_test.py
+            r"tests/[\w/]+\.py",  # tests/path/to/file.py
+        ]
+
+        for pattern in test_patterns:
+            matches = re.findall(pattern, content)
+            if matches:
+                # Take the first match
+                potential_path = matches[0]
+
+                # Verify file exists
+                if Path(potential_path).exists():
+                    return potential_path
+
+                # Try common test directories
+                for test_dir in ["tests", "test", "."]:
+                    full_path = Path(test_dir) / potential_path
+                    if full_path.exists():
+                        return str(full_path)
+
+        return None
 
     def extract_grade(self, review_text: str) -> str:
         """

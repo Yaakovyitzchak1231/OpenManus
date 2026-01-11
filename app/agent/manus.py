@@ -109,6 +109,27 @@ class Manus(ToolCallAgent):
                         logger.info(
                             f"Connected to MCP server {server_id} using command {server_config.command}"
                         )
+
+                        # Phase 3: Enhanced tool discovery logging
+                        server_tools = [
+                            t
+                            for t in self.mcp_clients.tools
+                            if hasattr(t, "server_id") and t.server_id == server_id
+                        ]
+                        if server_tools:
+                            logger.info(
+                                f"📦 Discovered {len(server_tools)} tools from {server_id}:"
+                            )
+                            for tool in server_tools:
+                                # Truncate description for cleaner logs
+                                desc = (
+                                    tool.description[:80] + "..."
+                                    if len(tool.description) > 80
+                                    else tool.description
+                                )
+                                logger.info(f"  - {tool.name}: {desc}")
+                        else:
+                            logger.warning(f"No tools discovered from {server_id}")
             except Exception as e:
                 logger.error(f"Failed to connect to MCP server {server_id}: {e}")
 
