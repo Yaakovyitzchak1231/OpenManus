@@ -6,9 +6,9 @@ from app.tool.create_chat_completion import CreateChatCompletion
 from app.tool.planning import PlanningTool
 from app.tool.str_replace_editor import StrReplaceEditor
 from app.tool.terminate import Terminate
+from app.tool.test_runner import TestRunner
 from app.tool.tool_collection import ToolCollection
 from app.tool.web_search import WebSearch
-
 
 __all__ = [
     "BaseTool",
@@ -16,6 +16,7 @@ __all__ = [
     "BrowserUseTool",
     "Terminate",
     "StrReplaceEditor",
+    "TestRunner",
     "WebSearch",
     "ToolCollection",
     "CreateChatCompletion",

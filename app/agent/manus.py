@@ -7,6 +7,7 @@ from app.agent.toolcall import ToolCallAgent
 from app.config import config
 from app.logger import logger
 from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
+from app.schema import Message
 from app.tool import Terminate, ToolCollection
 from app.tool.ask_human import AskHuman
 from app.tool.browser_use_tool import BrowserUseTool
@@ -19,13 +20,18 @@ class Manus(ToolCallAgent):
     """A versatile general-purpose agent with support for both local and MCP tools."""
 
     name: str = "Manus"
-    description: str = "A versatile agent that can solve various tasks using multiple tools including MCP-based tools"
+    description: str = (
+        "A versatile agent that can solve various tasks using multiple tools including MCP-based tools"
+    )
 
     system_prompt: str = SYSTEM_PROMPT.format(directory=config.workspace_root)
     next_step_prompt: str = NEXT_STEP_PROMPT
 
     max_observe: int = 10000
-    max_steps: int = 20
+
+    # Phase 2/3: Configurable max_steps based on effort level
+    # Will be set in __init__ based on config.agent settings
+    max_steps: int = 20  # Default, overridden by config
 
     # MCP clients for remote tool access
     mcp_clients: MCPClients = Field(default_factory=MCPClients)
@@ -52,8 +58,26 @@ class Manus(ToolCallAgent):
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
-        """Initialize basic components synchronously."""
+        """
+        Initialize basic components synchronously.
+
+        Phase 2/3: Apply high-effort mode settings from config.
+        """
         self.browser_context_helper = BrowserContextHelper(self)
+
+        # Apply high-effort mode from config if enabled
+        if hasattr(config, "agent") and config.agent:
+            high_effort = getattr(config.agent, "high_effort_mode", False)
+            if high_effort:
+                # Use high-effort max_steps
+                self.max_steps = getattr(config.agent, "max_steps_high_effort", 50)
+                self.effort_level = "high"
+                logger.info(f"High-effort mode enabled: max_steps={self.max_steps}")
+            else:
+                # Use normal max_steps
+                self.max_steps = getattr(config.agent, "max_steps_normal", 20)
+                self.effort_level = "normal"
+
         return self
 
     @classmethod
@@ -85,6 +109,27 @@ class Manus(ToolCallAgent):
                         logger.info(
                             f"Connected to MCP server {server_id} using command {server_config.command}"
                         )
+
+                        # Phase 3: Enhanced tool discovery logging
+                        server_tools = [
+                            t
+                            for t in self.mcp_clients.tools
+                            if hasattr(t, "server_id") and t.server_id == server_id
+                        ]
+                        if server_tools:
+                            logger.info(
+                                f"📦 Discovered {len(server_tools)} tools from {server_id}:"
+                            )
+                            for tool in server_tools:
+                                # Truncate description for cleaner logs
+                                desc = (
+                                    tool.description[:80] + "..."
+                                    if len(tool.description) > 80
+                                    else tool.description
+                                )
+                                logger.info(f"  - {tool.name}: {desc}")
+                        else:
+                            logger.warning(f"No tools discovered from {server_id}")
             except Exception as e:
                 logger.error(f"Failed to connect to MCP server {server_id}: {e}")
 
@@ -142,6 +187,34 @@ class Manus(ToolCallAgent):
         if not self._initialized:
             await self.initialize_mcp_servers()
             self._initialized = True
+
+        # Phase 3: Self-Reflection Loop for High-Effort Mode
+        # Inject reflection prompt every 5 steps to encourage course correction
+        if hasattr(config, "agent") and config.agent:
+            enable_reflection = getattr(config.agent, "enable_reflection", False)
+            high_effort = getattr(config.agent, "high_effort_mode", False)
+
+            if enable_reflection and high_effort:
+                current_step = self.current_step
+                # Inject reflection every 5 steps (at steps 5, 10, 15, ...)
+                if current_step > 0 and current_step % 5 == 0:
+                    reflection_prompt = f"""
+## 🔄 Reflection Checkpoint (Step {current_step}/{self.max_steps})
+
+Before proceeding, take a moment to reflect:
+
+1. **Progress Review**: What have you accomplished in the last 5 steps?
+2. **Approach Validation**: Is your current approach working well, or should you adjust?
+3. **Quality Check**: Are you maintaining high quality standards (error handling, edge cases, testing)?
+4. **Remaining Work**: What remains to be done? Are you on track?
+5. **Improvements**: Are there better tools or methods you should use going forward?
+
+Briefly summarize your reflection, then continue with the next step.
+"""
+                    # Inject reflection as a system-level message
+                    reflection_msg = Message.system_message(reflection_prompt)
+                    self.memory.messages.append(reflection_msg)
+                    logger.info(f"💭 Injected reflection prompt at step {current_step}")
 
         original_prompt = self.next_step_prompt
         recent_messages = self.memory.messages[-3:] if self.memory.messages else []

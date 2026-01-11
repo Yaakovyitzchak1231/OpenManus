@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 from enum import Enum
@@ -137,10 +138,29 @@ class PlanningFlow(BaseFlow):
         """Create an initial plan based on the request using the flow's LLM and PlanningTool."""
         logger.info(f"Creating initial plan with ID: {self.active_plan_id}")
 
+        # Phase 2 Enhancement: Multi-stage reasoning with Chain-of-Thought
         system_message_content = (
-            "You are a planning assistant. Create a concise, actionable plan with clear steps. "
-            "Focus on key milestones rather than detailed sub-steps. "
-            "Optimize for clarity and efficiency."
+            "You are an expert planning assistant with deep problem-solving capabilities. "
+            "Your goal is to create detailed, actionable plans with granular sub-tasks.\n\n"
+            "## Planning Guidelines:\n"
+            "1. **Decompose thoroughly**: Break complex tasks into 5-10 clear, atomic steps\n"
+            "2. **Think step-by-step**: Use Chain-of-Thought reasoning to identify all required actions\n"
+            "3. **Consider dependencies**: Order steps logically based on prerequisites\n"
+            "4. **Be specific**: Each step should have a clear, measurable outcome\n"
+            "5. **Include verification**: Add explicit validation/testing steps where appropriate\n\n"
+            "## Example Format:\n"
+            "For 'Build a web scraper':\n"
+            "1. Research target website structure and identify selectors\n"
+            "2. Set up Python environment with required libraries\n"
+            "3. Implement HTTP request logic with error handling\n"
+            "4. Parse HTML and extract target data\n"
+            "5. Handle pagination and rate limiting\n"
+            "6. Save data to CSV with proper formatting\n"
+            "7. Write unit tests for scraper functions\n"
+            "8. Test scraper on sample pages\n"
+            "9. Verify output data quality\n"
+            "10. Document usage and limitations\n\n"
+            "Focus on creating a comprehensive plan that anticipates edge cases and validation needs."
         )
         agents_description = []
         for key in self.executor_keys:
@@ -198,15 +218,25 @@ class PlanningFlow(BaseFlow):
                     return
 
         # If execution reached here, create a default plan
-        logger.warning("Creating default plan")
+        logger.warning(
+            "LLM did not generate plan via tool, creating enhanced default plan"
+        )
 
-        # Create default plan using the ToolCollection
+        # Phase 2 Enhancement: More granular default plan (7 steps instead of 3)
         await self.planning_tool.execute(
             **{
                 "command": "create",
                 "plan_id": self.active_plan_id,
                 "title": f"Plan for: {request[:50]}{'...' if len(request) > 50 else ''}",
-                "steps": ["Analyze request", "Execute task", "Verify results"],
+                "steps": [
+                    "Analyze request and identify requirements",
+                    "Research necessary tools and approaches",
+                    "Design solution architecture",
+                    "Implement core functionality",
+                    "Add error handling and edge cases",
+                    "Test implementation thoroughly",
+                    "Verify results and generate documentation",
+                ],
             }
         )
 
@@ -275,33 +305,99 @@ class PlanningFlow(BaseFlow):
             return None, None
 
     async def _execute_step(self, executor: BaseAgent, step_info: dict) -> str:
-        """Execute the current step with the specified agent using agent.run()."""
+        """
+        Execute the current step with verification loop and retry capability.
+
+        Phase 2 Enhancement: Adds retry logic (up to 3 attempts) for failed steps
+        with error feedback to improve robustness.
+        """
         # Prepare context for the agent with current plan status
         plan_status = await self._get_plan_text()
         step_text = step_info.get("text", f"Step {self.current_step_index}")
 
-        # Create a prompt for the agent to execute the current step
-        step_prompt = f"""
-        CURRENT PLAN STATUS:
-        {plan_status}
+        # Phase 2: Verification loop with retry
+        max_retries = 3
+        retry_count = 0
+        last_error = None
 
-        YOUR CURRENT TASK:
-        You are now working on step {self.current_step_index}: "{step_text}"
+        while retry_count < max_retries:
+            # Create a prompt for the agent to execute the current step
+            step_prompt = f"""
+            CURRENT PLAN STATUS:
+            {plan_status}
 
-        Please only execute this current step using the appropriate tools. When you're done, provide a summary of what you accomplished.
-        """
+            YOUR CURRENT TASK:
+            You are now working on step {self.current_step_index}: "{step_text}"
 
-        # Use agent.run() to execute the step
-        try:
-            step_result = await executor.run(step_prompt)
+            """
 
-            # Mark the step as completed after successful execution
-            await self._mark_step_completed()
+            # Add error feedback for retries
+            if retry_count > 0 and last_error:
+                step_prompt += f"""
+            PREVIOUS ATTEMPT FAILED:
+            Error: {last_error}
 
-            return step_result
-        except Exception as e:
-            logger.error(f"Error executing step {self.current_step_index}: {e}")
-            return f"Error executing step {self.current_step_index}: {str(e)}"
+            Please analyze the error and try a different approach. Consider:
+            1. What went wrong?
+            2. Are there alternative methods or tools to use?
+            3. Do you need to break this step into smaller sub-tasks?
+
+            """
+
+            # Phase 3: Agent-based tool selection - inject tool context
+            tool_selection_hint = self._format_tool_selection_hint(executor, step_text)
+            if tool_selection_hint:
+                step_prompt += f"\n{tool_selection_hint}\n"
+            
+            step_prompt += "Please execute this step using the appropriate tools. When done, provide a summary of what you accomplished.\n"
+
+            # Use agent.run() to execute the step
+            try:
+                step_result = await executor.run(step_prompt)
+
+                # Verify that execution was successful (not just completed)
+                # Check if result contains error indicators
+                if "error" in step_result.lower() and retry_count < max_retries - 1:
+                    logger.warning(
+                        f"Step {self.current_step_index} may have errors, retry {retry_count + 1}/{max_retries}"
+                    )
+                    last_error = (
+                        f"Output contained error indicators: {step_result[:200]}"
+                    )
+                    retry_count += 1
+                    await asyncio.sleep(1)  # Brief pause before retry
+                    continue
+
+                # Success! Mark as completed
+                await self._mark_step_completed()
+
+                if retry_count > 0:
+                    logger.info(
+                        f"Step {self.current_step_index} succeeded after {retry_count} retry(ies)"
+                    )
+
+                return step_result
+
+            except Exception as e:
+                retry_count += 1
+                last_error = str(e)
+                logger.error(
+                    f"Error executing step {self.current_step_index} (attempt {retry_count}/{max_retries}): {e}"
+                )
+
+                if retry_count < max_retries:
+                    logger.info(f"Retrying step {self.current_step_index}...")
+                    await asyncio.sleep(2)  # Pause before retry
+                else:
+                    # Max retries exhausted, mark as BLOCKED
+                    logger.error(
+                        f"Step {self.current_step_index} failed after {max_retries} attempts, marking as BLOCKED"
+                    )
+                    await self._mark_step_blocked(last_error)
+                    return f"ERROR (BLOCKED after {max_retries} attempts): {last_error[:500]}"
+
+        # Should not reach here, but handle defensively
+        return f"Step execution completed after {retry_count} attempts"
 
     async def _mark_step_completed(self) -> None:
         """Mark the current step as completed."""
@@ -332,6 +428,41 @@ class PlanningFlow(BaseFlow):
 
                 # Update the status
                 step_statuses[self.current_step_index] = PlanStepStatus.COMPLETED.value
+                plan_data["step_statuses"] = step_statuses
+
+    async def _mark_step_blocked(self, error_message: str) -> None:
+        """
+        Mark the current step as blocked after failed retries.
+
+        Phase 2 Enhancement: Tracks failed steps with error context for debugging.
+        """
+        if self.current_step_index is None:
+            return
+
+        try:
+            # Mark the step as blocked
+            await self.planning_tool.execute(
+                command="mark_step",
+                plan_id=self.active_plan_id,
+                step_index=self.current_step_index,
+                step_status=PlanStepStatus.BLOCKED.value,
+            )
+            logger.error(
+                f"Marked step {self.current_step_index} as BLOCKED in plan {self.active_plan_id}: {error_message[:200]}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to mark step as BLOCKED: {e}")
+            # Update step status directly in planning tool storage
+            if self.active_plan_id in self.planning_tool.plans:
+                plan_data = self.planning_tool.plans[self.active_plan_id]
+                step_statuses = plan_data.get("step_statuses", [])
+
+                # Ensure the step_statuses list is long enough
+                while len(step_statuses) <= self.current_step_index:
+                    step_statuses.append(PlanStepStatus.NOT_STARTED.value)
+
+                # Update the status to BLOCKED
+                step_statuses[self.current_step_index] = PlanStepStatus.BLOCKED.value
                 plan_data["step_statuses"] = step_statuses
 
     async def _get_plan_text(self) -> str:
@@ -440,3 +571,37 @@ class PlanningFlow(BaseFlow):
             except Exception as e2:
                 logger.error(f"Error finalizing plan with agent: {e2}")
                 return "Plan completed. Error generating summary."
+
+    def _format_tool_selection_hint(self, agent: BaseAgent, step_text: str) -> str:
+        """
+        Format tool selection hint for agent context.
+
+        Provides agent with information about available tools to make intelligent
+        routing decisions based on the current step requirements.
+
+        Args:
+            agent: The executor agent
+            step_text: Description of the current step
+
+        Returns:
+            Formatted tool selection hint or empty string if no tools available
+        """
+        if not hasattr(agent, 'available_tools') or not agent.available_tools:
+            return ""
+
+        tools_desc = []
+        for tool in agent.available_tools.tools:
+            # Format tool name and description
+            tools_desc.append(f"  - {tool.name}: {tool.description}")
+
+        if not tools_desc:
+            return ""
+
+        hint = f"""
+AVAILABLE TOOLS FOR THIS STEP:
+{chr(10).join(tools_desc)}
+
+For the specific task "{step_text}", consider which tools are most relevant.
+Use your judgment to select the best tools for accomplishing this step efficiently.
+"""
+        return hint

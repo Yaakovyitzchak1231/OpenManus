@@ -11,7 +11,6 @@ from app.prompt.toolcall import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from app.schema import TOOL_CHOICE_TYPE, AgentState, Message, ToolCall, ToolChoice
 from app.tool import CreateChatCompletion, Terminate, ToolCollection
 
-
 TOOL_CALL_REQUIRED = "Tool calls required but none provided"
 
 
@@ -38,9 +37,16 @@ class ToolCallAgent(ReActAgent):
 
     async def think(self) -> bool:
         """Process current state and decide next actions using tools"""
+        # Bug Fix: Only add next_step_prompt if the last message isn't a tool response
+        # This prevents breaking the required sequence: assistant(tool_calls) → tool(response)
         if self.next_step_prompt:
-            user_msg = Message.user_message(self.next_step_prompt)
-            self.messages += [user_msg]
+            # Check if last message is a tool response (which should be followed by assistant thinking, not user prompt)
+            if self.messages and self.messages[-1].role == "tool":
+                # Don't add user prompt - let the LLM respond to tool results directly
+                pass
+            else:
+                user_msg = Message.user_message(self.next_step_prompt)
+                self.messages += [user_msg]
 
         try:
             # Get response with tool options

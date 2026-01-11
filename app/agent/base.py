@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from typing import List, Optional
 
@@ -10,7 +9,7 @@ from app.sandbox.client import SANDBOX_CLIENT
 from app.schema import ROLE_TYPE, AgentState, Memory, Message
 
 
-class BaseAgent(BaseModel, ABC):
+class BaseAgent(BaseModel):
     """Abstract base class for managing agent state and execution.
 
     Provides foundational functionality for state transitions, memory management,
@@ -39,6 +38,12 @@ class BaseAgent(BaseModel, ABC):
     # Execution control
     max_steps: int = Field(default=10, description="Maximum steps before termination")
     current_step: int = Field(default=0, description="Current step in execution")
+
+    # Phase 2/3: High-effort mode support
+    effort_level: str = Field(
+        default="normal",
+        description="Effort level: 'normal' (default) or 'high' (extended thinking with more steps)",
+    )
 
     duplicate_threshold: int = 2
 
@@ -153,12 +158,13 @@ class BaseAgent(BaseModel, ABC):
         await SANDBOX_CLIENT.cleanup()
         return "\n".join(results) if results else "No steps executed"
 
-    @abstractmethod
     async def step(self) -> str:
-        """Execute a single step in the agent's workflow.
+        """
+        Execute a single step in the agent's workflow.
 
         Must be implemented by subclasses to define specific behavior.
         """
+        raise NotImplementedError("Subclasses must implement the step() method")
 
     def handle_stuck_state(self):
         """Handle stuck state by adding a prompt to change strategy"""

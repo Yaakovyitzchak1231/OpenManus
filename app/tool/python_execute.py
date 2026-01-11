@@ -10,7 +10,9 @@ class PythonExecute(BaseTool):
     """A tool for executing Python code with timeout and safety restrictions."""
 
     name: str = "python_execute"
-    description: str = "Executes Python code string. Note: Only print outputs are visible, function return values are not captured. Use print statements to see results."
+    description: str = (
+        "Executes Python code string. Note: Only print outputs are visible, function return values are not captured. Use print statements to see results."
+    )
     parameters: dict = {
         "type": "object",
         "properties": {
@@ -39,14 +41,14 @@ class PythonExecute(BaseTool):
     async def execute(
         self,
         code: str,
-        timeout: int = 5,
+        timeout: int = 30,  # Increased from 5 to 30 for Daytona sandbox initialization
     ) -> Dict:
         """
         Executes the provided Python code with a timeout.
 
         Args:
             code (str): The Python code to execute.
-            timeout (int): Execution timeout in seconds.
+            timeout (int): Execution timeout in seconds (default: 30).
 
         Returns:
             Dict: Contains 'output' with execution output or error message and 'success' status.

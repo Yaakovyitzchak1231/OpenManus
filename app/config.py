@@ -60,9 +60,30 @@ class SearchSettings(BaseModel):
     )
 
 
+class AgentSettings(BaseModel):
+    high_effort_mode: bool = Field(
+        default=False, description="Enable high-effort mode with extended steps"
+    )
+    max_steps_normal: int = Field(
+        default=20, description="Maximum steps in normal mode"
+    )
+    max_steps_high_effort: int = Field(
+        default=50, description="Maximum steps in high-effort mode"
+    )
+    enable_reflection: bool = Field(
+        default=True, description="Enable reflection prompts in high-effort mode"
+    )
+
+
 class RunflowSettings(BaseModel):
     use_data_analysis_agent: bool = Field(
         default=False, description="Enable data analysis agent in run flow"
+    )
+    use_reviewer_agent: bool = Field(
+        default=False, description="Enable Doer-Critic self-correction loop"
+    )
+    max_review_iterations: int = Field(
+        default=3, description="Maximum Doer-Critic iterations per step"
     )
 
 
@@ -146,29 +167,57 @@ class MCPSettings(BaseModel):
     )
 
     @classmethod
-    def load_server_config(cls) -> Dict[str, MCPServerConfig]:
-        """Load MCP server configuration from JSON file"""
-        config_path = PROJECT_ROOT / "config" / "mcp.json"
+    def load_server_config(
+        cls, toml_servers: Optional[Dict] = None
+    ) -> Dict[str, MCPServerConfig]:
+        """
+        Load MCP server configuration from TOML (primary) and JSON (optional override).
 
-        try:
-            config_file = config_path if config_path.exists() else None
-            if not config_file:
-                return {}
+        Priority:
+        1. config.toml [mcp.servers.*] (primary source)
+        2. mcp.json (optional override/backward compatibility)
 
-            with config_file.open() as f:
-                data = json.load(f)
-                servers = {}
+        Args:
+            toml_servers: Server configs from TOML file
 
-                for server_id, server_config in data.get("mcpServers", {}).items():
+        Returns:
+            Dictionary of server_id -> MCPServerConfig
+        """
+        servers = {}
+
+        # Load from TOML first (primary source)
+        if toml_servers:
+            for server_id, server_config in toml_servers.items():
+                try:
                     servers[server_id] = MCPServerConfig(
-                        type=server_config["type"],
+                        type=server_config.get("type", "stdio"),
                         url=server_config.get("url"),
                         command=server_config.get("command"),
                         args=server_config.get("args", []),
                     )
-                return servers
-        except Exception as e:
-            raise ValueError(f"Failed to load MCP server config: {e}")
+                except Exception as e:
+                    print(
+                        f"Warning: Failed to load TOML config for server {server_id}: {e}"
+                    )
+
+        # Load from JSON as optional override/fallback
+        config_path = PROJECT_ROOT / "config" / "mcp.json"
+        if config_path.exists():
+            try:
+                with config_path.open() as f:
+                    data = json.load(f)
+                    for server_id, server_config in data.get("mcpServers", {}).items():
+                        servers[server_id] = MCPServerConfig(
+                            type=server_config["type"],
+                            url=server_config.get("url"),
+                            command=server_config.get("command"),
+                            args=server_config.get("args", []),
+                        )
+                        # MCP server loaded from mcp.json (overrides TOML if present)
+            except Exception as e:
+                print(f"Warning: Failed to load MCP config from mcp.json: {e}")
+
+        return servers
 
 
 class AppConfig(BaseModel):
@@ -185,6 +234,9 @@ class AppConfig(BaseModel):
     mcp_config: Optional[MCPSettings] = Field(None, description="MCP configuration")
     run_flow_config: Optional[RunflowSettings] = Field(
         None, description="Run flow configuration"
+    )
+    agent_config: Optional[AgentSettings] = Field(
+        None, description="Agent configuration"
     )
     daytona_config: Optional[DaytonaSettings] = Field(
         None, description="Daytona configuration"
@@ -299,8 +351,9 @@ class Config:
         mcp_config = raw_config.get("mcp", {})
         mcp_settings = None
         if mcp_config:
-            # Load server configurations from JSON
-            mcp_config["servers"] = MCPSettings.load_server_config()
+            # Extract servers from TOML and load with JSON override
+            toml_servers = mcp_config.get("servers", {})
+            mcp_config["servers"] = MCPSettings.load_server_config(toml_servers)
             mcp_settings = MCPSettings(**mcp_config)
         else:
             mcp_settings = MCPSettings(servers=MCPSettings.load_server_config())
@@ -310,6 +363,13 @@ class Config:
             run_flow_settings = RunflowSettings(**run_flow_config)
         else:
             run_flow_settings = RunflowSettings()
+
+        agent_config = raw_config.get("agent")
+        if agent_config:
+            agent_settings = AgentSettings(**agent_config)
+        else:
+            agent_settings = AgentSettings()
+
         config_dict = {
             "llm": {
                 "default": default_settings,
@@ -323,6 +383,7 @@ class Config:
             "search_config": search_settings,
             "mcp_config": mcp_settings,
             "run_flow_config": run_flow_settings,
+            "agent_config": agent_settings,
             "daytona_config": daytona_settings,
         }
 
@@ -357,6 +418,11 @@ class Config:
     def run_flow_config(self) -> RunflowSettings:
         """Get the Run Flow configuration"""
         return self._config.run_flow_config
+
+    @property
+    def agent(self) -> AgentSettings:
+        """Get the Agent configuration"""
+        return self._config.agent_config
 
     @property
     def workspace_root(self) -> Path:
