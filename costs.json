@@ -1388,5 +1388,735 @@
     "estimated_cost_usd": 0.0007,
     "prompt_preview": null,
     "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:25:00.219380",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 2835,
+    "output_tokens": 462,
+    "total_tokens": 3297,
+    "estimated_cost_usd": 0.0154,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:25:14.658343",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 3414,
+    "output_tokens": 329,
+    "total_tokens": 3743,
+    "estimated_cost_usd": 0.0152,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:25:29.106549",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 3785,
+    "output_tokens": 470,
+    "total_tokens": 4255,
+    "estimated_cost_usd": 0.0184,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:25:41.081149",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 4353,
+    "output_tokens": 200,
+    "total_tokens": 4553,
+    "estimated_cost_usd": 0.0161,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:25:54.613460",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 1378,
+    "output_tokens": 582,
+    "total_tokens": 1960,
+    "estimated_cost_usd": 0.0129,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:26:17.862093",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 5767,
+    "output_tokens": 1184,
+    "total_tokens": 6951,
+    "estimated_cost_usd": 0.0351,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:26:39.602386",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 7249,
+    "output_tokens": 430,
+    "total_tokens": 7679,
+    "estimated_cost_usd": 0.0282,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:26:53.260424",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 2335,
+    "output_tokens": 610,
+    "total_tokens": 2945,
+    "estimated_cost_usd": 0.0162,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:28:24.757558",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 2951,
+    "output_tokens": 250,
+    "total_tokens": 3201,
+    "estimated_cost_usd": 0.0126,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:29:13.911030",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 2882,
+    "output_tokens": 727,
+    "total_tokens": 3609,
+    "estimated_cost_usd": 0.0196,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:29:26.266528",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 3664,
+    "output_tokens": 573,
+    "total_tokens": 4237,
+    "estimated_cost_usd": 0.0196,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:29:30.215082",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 4295,
+    "output_tokens": 152,
+    "total_tokens": 4447,
+    "estimated_cost_usd": 0.0152,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:29:51.906194",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 5403,
+    "output_tokens": 134,
+    "total_tokens": 5537,
+    "estimated_cost_usd": 0.0182,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:30:05.681183",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 5957,
+    "output_tokens": 264,
+    "total_tokens": 6221,
+    "estimated_cost_usd": 0.0218,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:30:09.816867",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 6957,
+    "output_tokens": 162,
+    "total_tokens": 7119,
+    "estimated_cost_usd": 0.0233,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:30:33.721282",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 7159,
+    "output_tokens": 184,
+    "total_tokens": 7343,
+    "estimated_cost_usd": 0.0242,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:30:44.727906",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 7387,
+    "output_tokens": 105,
+    "total_tokens": 7492,
+    "estimated_cost_usd": 0.0237,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:35:59.278459",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 7921,
+    "output_tokens": 172,
+    "total_tokens": 8093,
+    "estimated_cost_usd": 0.0263,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:36:13.697514",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 8559,
+    "output_tokens": 366,
+    "total_tokens": 8925,
+    "estimated_cost_usd": 0.0312,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:36:24.039471",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 8982,
+    "output_tokens": 176,
+    "total_tokens": 9158,
+    "estimated_cost_usd": 0.0296,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:36:38.255713",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 9199,
+    "output_tokens": 317,
+    "total_tokens": 9516,
+    "estimated_cost_usd": 0.0324,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T16:36:42.328340",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 1665,
+    "output_tokens": 145,
+    "total_tokens": 1810,
+    "estimated_cost_usd": 0.0072,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:17:50.297693",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 1050,
+    "output_tokens": 326,
+    "total_tokens": 1376,
+    "estimated_cost_usd": 0.008,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:18:02.097223",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 3756,
+    "output_tokens": 586,
+    "total_tokens": 4342,
+    "estimated_cost_usd": 0.0201,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:18:05.622615",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 4396,
+    "output_tokens": 111,
+    "total_tokens": 4507,
+    "estimated_cost_usd": 0.0149,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:18:13.389549",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 5039,
+    "output_tokens": 290,
+    "total_tokens": 5329,
+    "estimated_cost_usd": 0.0195,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:18:19.771587",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 6675,
+    "output_tokens": 185,
+    "total_tokens": 6860,
+    "estimated_cost_usd": 0.0228,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:18:25.771455",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 7768,
+    "output_tokens": 200,
+    "total_tokens": 7968,
+    "estimated_cost_usd": 0.0263,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:18:37.144176",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 8008,
+    "output_tokens": 144,
+    "total_tokens": 8152,
+    "estimated_cost_usd": 0.0262,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:18:50.914910",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 8557,
+    "output_tokens": 274,
+    "total_tokens": 8831,
+    "estimated_cost_usd": 0.0298,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:18:57.122585",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 10181,
+    "output_tokens": 204,
+    "total_tokens": 10385,
+    "estimated_cost_usd": 0.0336,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:00.289537",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 10438,
+    "output_tokens": 110,
+    "total_tokens": 10548,
+    "estimated_cost_usd": 0.033,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:11.338274",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 11002,
+    "output_tokens": 621,
+    "total_tokens": 11623,
+    "estimated_cost_usd": 0.0423,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:15.406331",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 11690,
+    "output_tokens": 125,
+    "total_tokens": 11815,
+    "estimated_cost_usd": 0.0369,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:19.857729",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 12347,
+    "output_tokens": 147,
+    "total_tokens": 12494,
+    "estimated_cost_usd": 0.0392,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:32.492086",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 12899,
+    "output_tokens": 230,
+    "total_tokens": 13129,
+    "estimated_cost_usd": 0.0421,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:35.285672",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 14359,
+    "output_tokens": 3,
+    "total_tokens": 14362,
+    "estimated_cost_usd": 0.0431,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:41.183795",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 14743,
+    "output_tokens": 190,
+    "total_tokens": 14933,
+    "estimated_cost_usd": 0.0471,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:49.358378",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 15465,
+    "output_tokens": 454,
+    "total_tokens": 15919,
+    "estimated_cost_usd": 0.0532,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:19:59.013777",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 16465,
+    "output_tokens": 455,
+    "total_tokens": 16920,
+    "estimated_cost_usd": 0.0562,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:20:12.584188",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 17066,
+    "output_tokens": 277,
+    "total_tokens": 17343,
+    "estimated_cost_usd": 0.0554,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:20:20.921339",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 17655,
+    "output_tokens": 456,
+    "total_tokens": 18111,
+    "estimated_cost_usd": 0.0598,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:20:36.571251",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 18633,
+    "output_tokens": 404,
+    "total_tokens": 19037,
+    "estimated_cost_usd": 0.062,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:20:50.709292",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 19402,
+    "output_tokens": 707,
+    "total_tokens": 20109,
+    "estimated_cost_usd": 0.0688,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:21:05.729068",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 20366,
+    "output_tokens": 404,
+    "total_tokens": 20770,
+    "estimated_cost_usd": 0.0672,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:21:20.826042",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 21187,
+    "output_tokens": 754,
+    "total_tokens": 21941,
+    "estimated_cost_usd": 0.0749,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:21:37.412066",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 22241,
+    "output_tokens": 477,
+    "total_tokens": 22718,
+    "estimated_cost_usd": 0.0739,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:21:57.448187",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 23561,
+    "output_tokens": 1040,
+    "total_tokens": 24601,
+    "estimated_cost_usd": 0.0863,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:22:13.898849",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 24976,
+    "output_tokens": 380,
+    "total_tokens": 25356,
+    "estimated_cost_usd": 0.0806,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:22:21.113482",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 26723,
+    "output_tokens": 131,
+    "total_tokens": 26854,
+    "estimated_cost_usd": 0.0821,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:22:40.441370",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 27910,
+    "output_tokens": 1089,
+    "total_tokens": 28999,
+    "estimated_cost_usd": 0.1001,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:22:57.874369",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 29422,
+    "output_tokens": 382,
+    "total_tokens": 29804,
+    "estimated_cost_usd": 0.094,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:23:05.536955",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 31316,
+    "output_tokens": 128,
+    "total_tokens": 31444,
+    "estimated_cost_usd": 0.0959,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:23:29.003787",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 32500,
+    "output_tokens": 1298,
+    "total_tokens": 33798,
+    "estimated_cost_usd": 0.117,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:23:46.641300",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 34369,
+    "output_tokens": 426,
+    "total_tokens": 34795,
+    "estimated_cost_usd": 0.1095,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:23:52.740948",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 36001,
+    "output_tokens": 127,
+    "total_tokens": 36128,
+    "estimated_cost_usd": 0.1099,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:24:04.429891",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 37184,
+    "output_tokens": 412,
+    "total_tokens": 37596,
+    "estimated_cost_usd": 0.1177,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:24:25.297999",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 38468,
+    "output_tokens": 859,
+    "total_tokens": 39327,
+    "estimated_cost_usd": 0.1283,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:24:46.589209",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 39865,
+    "output_tokens": 674,
+    "total_tokens": 40539,
+    "estimated_cost_usd": 0.1297,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:25:05.048359",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 40937,
+    "output_tokens": 376,
+    "total_tokens": 41313,
+    "estimated_cost_usd": 0.1285,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:25:12.577249",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 41708,
+    "output_tokens": 128,
+    "total_tokens": 41836,
+    "estimated_cost_usd": 0.127,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:25:36.152704",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 42313,
+    "output_tokens": 1186,
+    "total_tokens": 43499,
+    "estimated_cost_usd": 0.1447,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:25:55.992497",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 48494,
+    "output_tokens": 544,
+    "total_tokens": 49038,
+    "estimated_cost_usd": 0.1536,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:26:26.553935",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 49062,
+    "output_tokens": 120,
+    "total_tokens": 49182,
+    "estimated_cost_usd": 0.149,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:26:37.488921",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 50059,
+    "output_tokens": 396,
+    "total_tokens": 50455,
+    "estimated_cost_usd": 0.1561,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:27:02.008387",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 50390,
+    "output_tokens": 1503,
+    "total_tokens": 51893,
+    "estimated_cost_usd": 0.1737,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:27:22.545950",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 52705,
+    "output_tokens": 607,
+    "total_tokens": 53312,
+    "estimated_cost_usd": 0.1672,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:27:57.498314",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 54038,
+    "output_tokens": 126,
+    "total_tokens": 54164,
+    "estimated_cost_usd": 0.164,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:28:19.674584",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 54783,
+    "output_tokens": 1263,
+    "total_tokens": 56046,
+    "estimated_cost_usd": 0.1833,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:28:38.402247",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 56266,
+    "output_tokens": 454,
+    "total_tokens": 56720,
+    "estimated_cost_usd": 0.1756,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:28:52.322507",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 56927,
+    "output_tokens": 691,
+    "total_tokens": 57618,
+    "estimated_cost_usd": 0.1811,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:29:00.162287",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 57826,
+    "output_tokens": 120,
+    "total_tokens": 57946,
+    "estimated_cost_usd": 0.1753,
+    "prompt_preview": null,
+    "response_preview": null
+  },
+  {
+    "timestamp": "2026-01-11T19:29:52.802289",
+    "model": "anthropic/claude-3.5-sonnet",
+    "input_tokens": 59667,
+    "output_tokens": 1031,
+    "total_tokens": 60698,
+    "estimated_cost_usd": 0.1945,
+    "prompt_preview": null,
+    "response_preview": null
   }
 ]
