@@ -126,6 +126,26 @@ class BaseAgent(BaseModel):
         if self.run_recorder:
             self.run_recorder.event(event_type, payload)
 
+    def get_run_summary(self) -> dict:
+        tool_messages = [msg for msg in self.memory.messages if msg.role == "tool"]
+        assistant_messages = [
+            msg for msg in self.memory.messages if msg.role == "assistant"
+        ]
+        final_output = assistant_messages[-1].content if assistant_messages else None
+        summary = {
+            "steps": self.current_step,
+            "messages": len(self.memory.messages),
+            "tool_calls": len(tool_messages),
+            "state": self.state.value,
+            "final_preview": (final_output or "")[:500],
+        }
+        if hasattr(self.llm, "total_input_tokens"):
+            summary["llm"] = {
+                "input_tokens": getattr(self.llm, "total_input_tokens", 0),
+                "completion_tokens": getattr(self.llm, "total_completion_tokens", 0),
+            }
+        return summary
+
     async def run(self, request: Optional[str] = None) -> str:
         """Execute the agent's main loop asynchronously.
 
@@ -152,7 +172,15 @@ class BaseAgent(BaseModel):
             ):
                 self.current_step += 1
                 logger.info(f"Executing step {self.current_step}/{self.max_steps}")
+                self._record_event("step_start", {"step": self.current_step})
                 step_result = await self.step()
+                self._record_event(
+                    "step_end",
+                    {
+                        "step": self.current_step,
+                        "result_preview": step_result[:500],
+                    },
+                )
 
                 # Check for stuck state
                 if self.is_stuck():
@@ -165,7 +193,8 @@ class BaseAgent(BaseModel):
                 self.state = AgentState.IDLE
                 results.append(f"Terminated: Reached max steps ({self.max_steps})")
         await SANDBOX_CLIENT.cleanup()
-        self._record_event("run_end", {"steps": self.current_step, "state": self.state})
+        summary = self.get_run_summary()
+        self._record_event("run_end", summary)
         return "\n".join(results) if results else "No steps executed"
 
     async def step(self) -> str:

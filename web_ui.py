@@ -359,7 +359,18 @@ def _html_page() -> str:
       const payload = await response.json();
       sessionId = payload.session_id;
       localStorage.setItem('openmanus.session', sessionId);
-      updateStatus(`Session: ${sessionId}`);
+      if (payload.summary) {
+        const parts = [`Session: ${sessionId}`];
+        if (payload.summary.steps !== undefined) {
+          parts.push(`steps: ${payload.summary.steps}`);
+        }
+        if (payload.summary.tool_calls !== undefined) {
+          parts.push(`tools: ${payload.summary.tool_calls}`);
+        }
+        updateStatus(parts.join(' | '));
+      } else {
+        updateStatus(`Session: ${sessionId}`);
+      }
 
       (payload.messages || []).forEach((msg) => {
         if (msg.role === 'user') {
@@ -415,10 +426,12 @@ async def chat(request: ChatRequest) -> dict:
         before = len(session.agent.memory.messages)
         await session.agent.run(message)
         new_messages = session.agent.memory.messages[before:]
+        summary = session.agent.get_run_summary()
 
     return {
         "session_id": session.session_id,
         "messages": [msg.to_dict() for msg in new_messages],
+        "summary": summary,
     }
 
 

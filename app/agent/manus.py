@@ -5,13 +5,14 @@ from pydantic import Field, model_validator
 from app.agent.browser import BrowserContextHelper
 from app.agent.toolcall import ToolCallAgent
 from app.config import config
+from app.harness.tool_registry import ToolRegistry
 from app.logger import logger
 from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from app.schema import Message
 from app.tool import Terminate, ToolCollection
 from app.tool.ask_human import AskHuman
 from app.tool.browser_use_tool import BrowserUseTool
-from app.tool.mcp import MCPClients, MCPClientTool
+from app.tool.mcp import MCPClients
 from app.tool.python_execute import PythonExecute
 from app.tool.str_replace_editor import StrReplaceEditor
 
@@ -34,9 +35,8 @@ class Manus(ToolCallAgent):
     # MCP clients for remote tool access
     mcp_clients: MCPClients = Field(default_factory=MCPClients)
 
-    # Add general-purpose tools to the tool collection
-    available_tools: ToolCollection = Field(
-        default_factory=lambda: ToolCollection(
+    tool_registry: ToolRegistry = Field(
+        default_factory=lambda: ToolRegistry(
             PythonExecute(),
             BrowserUseTool(),
             StrReplaceEditor(),
@@ -44,6 +44,7 @@ class Manus(ToolCallAgent):
             Terminate(),
         )
     )
+    available_tools: ToolCollection = Field(default_factory=ToolCollection)
 
     special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
     browser_context_helper: Optional[BrowserContextHelper] = None
@@ -62,6 +63,7 @@ class Manus(ToolCallAgent):
         Phase 2/3: Apply high-effort mode settings from config.
         """
         self.browser_context_helper = BrowserContextHelper(self)
+        self.available_tools = self.tool_registry.collection
 
         # Apply high-effort mode from config if enabled
         if hasattr(config, "agent") and config.agent:
@@ -149,10 +151,12 @@ class Manus(ToolCallAgent):
             self.connected_servers[server_id or server_url] = server_url
 
         # Update available tools with only the new tools from this server
+        server_key = server_id or server_url
         new_tools = [
             tool for tool in self.mcp_clients.tools if tool.server_id == server_id
         ]
-        self.available_tools.add_tools(*new_tools)
+        self.tool_registry.add_tools(*new_tools, source=f"mcp:{server_key}")
+        self.available_tools = self.tool_registry.collection
 
     async def disconnect_mcp_server(self, server_id: str = "") -> None:
         """Disconnect from an MCP server and remove its tools."""
@@ -162,14 +166,11 @@ class Manus(ToolCallAgent):
         else:
             self.connected_servers.clear()
 
-        # Rebuild available tools without the disconnected server's tools
-        base_tools = [
-            tool
-            for tool in self.available_tools.tools
-            if not isinstance(tool, MCPClientTool)
-        ]
-        self.available_tools = ToolCollection(*base_tools)
-        self.available_tools.add_tools(*self.mcp_clients.tools)
+        if server_id:
+            self.tool_registry.remove_by_source(f"mcp:{server_id}")
+        else:
+            self.tool_registry.remove_by_source_prefix("mcp:")
+        self.available_tools = self.tool_registry.collection
 
     async def cleanup(self):
         """Clean up Manus agent resources."""
