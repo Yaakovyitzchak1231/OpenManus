@@ -1,4 +1,5 @@
 import asyncio
+import sys
 import time
 
 from app.agent.data_analysis import DataAnalysis
@@ -10,14 +11,19 @@ from app.logger import logger
 
 
 async def run_flow():
+    # Initialize agents asynchronously to ensure MCP servers connect properly
     agents = {
-        "manus": Manus(),
+        "manus": await Manus.create(),
     }
     if config.run_flow_config.use_data_analysis_agent:
-        agents["data_analysis"] = DataAnalysis()
+        agents["data_analysis"] = await DataAnalysis.create()
 
     try:
-        prompt = input("Enter your prompt: ")
+        # Check for command line argument first
+        if len(sys.argv) > 1:
+            prompt = " ".join(sys.argv[1:])
+        else:
+            prompt = input("Enter your prompt: ")
 
         if prompt.strip().isspace() or not prompt:
             logger.warning("Empty prompt provided.")
@@ -32,7 +38,7 @@ async def run_flow():
         # Phase 2: Wrap with ReviewFlow if use_reviewer_agent is enabled
         if config.run_flow_config.use_reviewer_agent:
             logger.info(
-                "🔄 Reviewer agent enabled - using Doer-Critic self-correction loop"
+                "Reviewer agent enabled - using Doer-Critic self-correction loop"
             )
             max_iterations = getattr(config.run_flow_config, "max_review_iterations", 3)
 
