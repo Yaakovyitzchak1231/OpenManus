@@ -10,11 +10,12 @@ from app.logger import logger
 
 
 async def run_flow():
+    # Initialize agents asynchronously to ensure MCP servers connect properly
     agents = {
-        "manus": Manus(),
+        "manus": await Manus.create(),  # Use async factory method for proper MCP initialization
     }
     if config.run_flow_config.use_data_analysis_agent:
-        agents["data_analysis"] = DataAnalysis()
+        agents["data_analysis"] = await DataAnalysis.create()
 
     try:
         prompt = input("Enter your prompt: ")
