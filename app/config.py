@@ -148,6 +148,32 @@ class DaytonaSettings(BaseModel):
     )
 
 
+class CheckpointSettings(BaseModel):
+    """Phase 4: Configuration for context checkpointing."""
+
+    enabled: bool = Field(default=True, description="Enable context checkpointing")
+    directory: str = Field(
+        default="workspace/checkpoints",
+        description="Directory for checkpoint files"
+    )
+    max_checkpoints: int = Field(
+        default=10,
+        description="Maximum checkpoints to keep per agent"
+    )
+    auto_checkpoint_interval: int = Field(
+        default=5,
+        description="Auto-checkpoint every N steps (0 to disable)"
+    )
+    checkpoint_on_error: bool = Field(
+        default=True,
+        description="Create checkpoint when errors occur"
+    )
+    checkpoint_before_compaction: bool = Field(
+        default=True,
+        description="Create checkpoint before context compaction"
+    )
+
+
 class MCPServerConfig(BaseModel):
     """Configuration for a single MCP server"""
 
@@ -282,6 +308,9 @@ class AppConfig(BaseModel):
     daytona_config: Optional[DaytonaSettings] = Field(
         None, description="Daytona configuration"
     )
+    checkpoint_config: Optional[CheckpointSettings] = Field(
+        None, description="Checkpoint configuration"
+    )
 
     class Config:
         arbitrary_types_allowed = True
@@ -411,6 +440,13 @@ class Config:
         else:
             agent_settings = AgentSettings()
 
+        # Phase 4: Load checkpoint config
+        checkpoint_config = raw_config.get("checkpoint", {})
+        if checkpoint_config:
+            checkpoint_settings = CheckpointSettings(**checkpoint_config)
+        else:
+            checkpoint_settings = CheckpointSettings()
+
         config_dict = {
             "llm": {
                 "default": default_settings,
@@ -426,6 +462,7 @@ class Config:
             "run_flow_config": run_flow_settings,
             "agent_config": agent_settings,
             "daytona_config": daytona_settings,
+            "checkpoint_config": checkpoint_settings,
         }
 
         self._config = AppConfig(**config_dict)
@@ -464,6 +501,11 @@ class Config:
     def agent(self) -> AgentSettings:
         """Get the Agent configuration"""
         return self._config.agent_config
+
+    @property
+    def checkpoint(self) -> CheckpointSettings:
+        """Get the Checkpoint configuration (Phase 4)"""
+        return self._config.checkpoint_config
 
     @property
     def workspace_root(self) -> Path:

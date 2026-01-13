@@ -111,3 +111,12 @@ server_reference = "app.mcp.server" # default server module reference
 # Your can add additional agents into run-flow workflow to solve different-type tasks.
 [runflow]
 use_data_analysis_agent = false     # The Data Analysi Agent to solve various data analysis tasks
+
+# Phase 4: Checkpoint configuration for context persistence
+# [checkpoint]
+# enabled = true                              # Enable context checkpointing
+# directory = "workspace/checkpoints"         # Directory for checkpoint files
+# max_checkpoints = 10                        # Maximum checkpoints to keep per agent
+# auto_checkpoint_interval = 5                # Auto-checkpoint every N steps (0 to disable)
+# checkpoint_on_error = true                  # Create checkpoint when errors occur
+# checkpoint_before_compaction = true         # Create checkpoint before context compaction

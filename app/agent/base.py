@@ -11,6 +11,7 @@ from app.schema import ROLE_TYPE, AgentState, Memory, Message
 
 if TYPE_CHECKING:
     from app.memory import ContextManager
+    from app.memory.checkpoint_manager import CheckpointManager, CheckpointData
 
 
 class BaseAgent(BaseModel):
@@ -52,6 +53,9 @@ class BaseAgent(BaseModel):
 
     # Context management for long-running agents (works with any LLM)
     context_manager: Optional["ContextManager"] = Field(default=None, exclude=True)
+
+    # Phase 4: Checkpoint management for state persistence
+    checkpoint_manager: Optional["CheckpointManager"] = Field(default=None, exclude=True)
 
     duplicate_threshold: int = 2
 
@@ -99,6 +103,20 @@ class BaseAgent(BaseModel):
             yield
         except Exception as e:
             self.state = AgentState.ERROR  # Transition to ERROR on failure
+            # Phase 4: Checkpoint on error if enabled
+            if self.checkpoint_manager and self.checkpoint_manager.checkpoint_on_error:
+                try:
+                    import asyncio
+                    asyncio.create_task(
+                        self.checkpoint_manager.save(
+                            f"error_step_{self.current_step}",
+                            self,
+                            trigger="error",
+                            description=f"Error: {str(e)[:200]}"
+                        )
+                    )
+                except Exception:
+                    pass  # Don't let checkpoint failure mask original error
             raise e
         finally:
             self.state = previous_state  # Revert to previous state
@@ -191,8 +209,36 @@ class BaseAgent(BaseModel):
                 self.current_step += 1
                 logger.info(f"Executing step {self.current_step}/{max_steps_limit}")
 
+                # Phase 4: Auto-checkpoint every N steps
+                if self.checkpoint_manager:
+                    interval = self.checkpoint_manager.auto_checkpoint_interval
+                    if interval > 0 and self.current_step % interval == 0:
+                        try:
+                            await self.checkpoint_manager.save(
+                                f"step_{self.current_step}",
+                                self,
+                                trigger="auto"
+                            )
+                        except Exception as e:
+                            logger.warning(f"Auto-checkpoint failed: {e}")
+
                 # Context management: compact if needed before each step
                 if self.context_manager:
+                    # Phase 4: Checkpoint before compaction if enabled
+                    if self.checkpoint_manager and self.checkpoint_manager.checkpoint_before_compaction:
+                        health = await self.context_manager.check_context_health(
+                            self.memory.messages, self.llm
+                        )
+                        if health.get("needs_compaction"):
+                            try:
+                                await self.checkpoint_manager.save(
+                                    f"pre_compaction_{self.context_manager.compaction_count + 1}",
+                                    self,
+                                    trigger="compaction"
+                                )
+                            except Exception as e:
+                                logger.warning(f"Pre-compaction checkpoint failed: {e}")
+
                     try:
                         self.memory.messages = await self.context_manager.compact_if_needed(
                             self.memory.messages, self.llm
@@ -267,3 +313,75 @@ class BaseAgent(BaseModel):
     def messages(self, value: List[Message]):
         """Set the list of messages in the agent's memory."""
         self.memory.messages = value
+
+    # Phase 4: Checkpoint serialization methods
+    def from_checkpoint_data(self, data: "CheckpointData") -> None:
+        """
+        Restore agent state from checkpoint data.
+
+        Args:
+            data: CheckpointData containing saved state
+        """
+        from app.schema import Message as MessageClass, ToolCall
+
+        # Restore messages
+        self.memory.messages = [
+            MessageClass(**msg_data) for msg_data in data.messages
+        ]
+
+        # Restore execution state
+        self.current_step = data.current_step
+        self.state = AgentState(data.state) if data.state else AgentState.IDLE
+
+        # Restore configuration
+        self.effort_level = data.effort_level
+        self.max_steps = data.max_steps
+        if data.system_prompt is not None:
+            self.system_prompt = data.system_prompt
+        if data.next_step_prompt is not None:
+            self.next_step_prompt = data.next_step_prompt
+
+        # Restore tool state if applicable
+        if hasattr(self, "tool_calls") and data.tool_calls:
+            self.tool_calls = [ToolCall(**tc) for tc in data.tool_calls]
+        if hasattr(self, "loaded_tool_names"):
+            self.loaded_tool_names = list(data.loaded_tool_names)
+        if hasattr(self, "connected_servers"):
+            self.connected_servers = dict(data.connected_servers)
+
+        # Restore context stats if context_manager exists
+        if self.context_manager and data.compaction_count > 0:
+            self.context_manager.compaction_count = data.compaction_count
+            self.context_manager.total_tokens_saved = data.total_tokens_saved
+
+        logger.info(
+            f"Restored agent from checkpoint: step {data.current_step}, "
+            f"{len(data.messages)} messages"
+        )
+
+    @classmethod
+    async def from_checkpoint(cls, checkpoint_path: str, **kwargs) -> "BaseAgent":
+        """
+        Create an agent instance from a checkpoint file.
+
+        Args:
+            checkpoint_path: Path to checkpoint JSON file
+            **kwargs: Additional arguments passed to agent constructor
+
+        Returns:
+            Agent instance restored from checkpoint
+        """
+        from app.memory.checkpoint_manager import CheckpointManager
+
+        # Load checkpoint data
+        cm = CheckpointManager()
+        data = await cm.load_from_path(checkpoint_path)
+
+        # Create new agent instance
+        agent = cls(**kwargs)
+
+        # Restore state from checkpoint
+        agent.from_checkpoint_data(data)
+
+        logger.info(f"Created agent from checkpoint: {checkpoint_path}")
+        return agent

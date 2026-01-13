@@ -7,7 +7,7 @@ from app.agent.toolcall import ToolCallAgent
 from app.config import config
 from app.harness.tool_registry import ToolRegistry
 from app.logger import logger
-from app.memory import ContextManager, MemoryTool
+from app.memory import ContextManager, MemoryTool, CheckpointManager
 from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from app.schema import Message
 from app.tool import Bash, Terminate, ToolCollection
@@ -125,6 +125,21 @@ class Manus(ToolCallAgent):
                 strategy=compaction_strategy,
             )
             logger.info(f"Context manager enabled: threshold={compaction_threshold}, strategy={compaction_strategy}")
+
+        # Phase 4: Initialize checkpoint manager
+        if hasattr(config, "checkpoint") and config.checkpoint:
+            cp_config = config.checkpoint
+            if cp_config.enabled:
+                from pathlib import Path
+                self.checkpoint_manager = CheckpointManager(
+                    checkpoint_dir=Path(cp_config.directory),
+                    agent_id=self.name.lower(),
+                    max_checkpoints=cp_config.max_checkpoints,
+                    auto_checkpoint_interval=cp_config.auto_checkpoint_interval,
+                    checkpoint_on_error=cp_config.checkpoint_on_error,
+                    checkpoint_before_compaction=cp_config.checkpoint_before_compaction,
+                )
+                logger.info(f"Checkpoint manager enabled: dir={cp_config.directory}, interval={cp_config.auto_checkpoint_interval}")
 
         # Apply effort level from config
         if hasattr(config, "agent") and config.agent:
