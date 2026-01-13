@@ -159,6 +159,40 @@ class MCPServerConfig(BaseModel):
     )
 
 
+class MCPCodeExecutionSettings(BaseModel):
+    """Settings for MCP code execution mode."""
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable MCP code execution tool for batch scripts",
+    )
+    default_language: str = Field(
+        default="bash", description="Default code execution language"
+    )
+    allowed_languages: List[str] = Field(
+        default_factory=lambda: ["bash", "python"],
+        description="Allowed languages for MCP code execution",
+    )
+    max_code_chars: Optional[int] = Field(
+        default=None,
+        description="Maximum code size in characters (None or <=0 means no limit)",
+    )
+    max_output_chars: Optional[int] = Field(
+        default=None,
+        description="Maximum output size in characters (None or <=0 means no limit)",
+    )
+    timeout_seconds: int = Field(
+        default=30, description="Soft timeout in seconds"
+    )
+    preferred_server: Optional[str] = Field(
+        default=None, description="Preferred MCP server id for execution"
+    )
+    preferred_tool: Optional[str] = Field(
+        default=None,
+        description="Preferred MCP tool name or original tool name",
+    )
+
+
 class MCPSettings(BaseModel):
     """Configuration for MCP (Model Context Protocol)"""
 
@@ -167,6 +201,10 @@ class MCPSettings(BaseModel):
     )
     servers: Dict[str, MCPServerConfig] = Field(
         default_factory=dict, description="MCP server configurations"
+    )
+    code_execution: MCPCodeExecutionSettings = Field(
+        default_factory=MCPCodeExecutionSettings,
+        description="MCP code execution settings",
     )
 
     @classmethod

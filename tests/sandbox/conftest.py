@@ -1,6 +1,7 @@
 import docker
-import pytest
 from docker.errors import APIError, DockerException, ImageNotFound
+import pytest
+
 
 DEFAULT_SANDBOX_IMAGE = "python:3.12-slim"
 

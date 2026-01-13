@@ -1,0 +1,13 @@
+# Generated artifacts
+logs/*
+workspace/*
+costs.json
+feedback.db
+flow_test_output.txt
+
+# Keep placeholders
+!logs/.gitkeep
+!workspace/.gitkeep
+__pycache__/
+*.pyc
+
