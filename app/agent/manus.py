@@ -7,14 +7,19 @@ from app.agent.toolcall import ToolCallAgent
 from app.config import config
 from app.harness.tool_registry import ToolRegistry
 from app.logger import logger
+from app.memory import ContextManager, MemoryTool
 from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from app.schema import Message
-from app.tool import Terminate, ToolCollection
+from app.tool import Bash, Terminate, ToolCollection
 from app.tool.ask_human import AskHuman
 from app.tool.browser_use_tool import BrowserUseTool
+from app.tool.mcp_code_execution import MCPCodeExecution
 from app.tool.mcp import MCPClients
 from app.tool.python_execute import PythonExecute
 from app.tool.str_replace_editor import StrReplaceEditor
+from app.tool.task import TaskTool
+from app.tool.tool_search import ToolSearchTool
+from app.harness.subagent_registry import SubAgentRegistry
 
 
 class Manus(ToolCallAgent):
@@ -38,6 +43,7 @@ class Manus(ToolCallAgent):
     tool_registry: ToolRegistry = Field(
         default_factory=lambda: ToolRegistry(
             PythonExecute(),
+            Bash(),
             BrowserUseTool(),
             StrReplaceEditor(),
             AskHuman(),
@@ -65,18 +71,67 @@ class Manus(ToolCallAgent):
         self.browser_context_helper = BrowserContextHelper(self)
         self.available_tools = self.tool_registry.collection
 
-        # Apply high-effort mode from config if enabled
+        self.tool_registry.add_tools(
+            ToolSearchTool(
+                tools_provider=lambda: list(self.tool_registry.collection.tools)
+            ),
+            source="local",
+        )
+        self.tool_registry.add_tools(
+            MCPCodeExecution(mcp_clients=self.mcp_clients, settings=config.mcp_config.code_execution),
+            source="local",
+        )
+
+        # Phase 0: Add Task tool for spawning specialized sub-agents
+        self.tool_registry.add_tools(
+            TaskTool(subagent_registry=SubAgentRegistry()),
+            source="local",
+        )
+
+        # Phase 1: Add Memory tool for persistent storage
+        memory_db_path = "workspace/memory.db"
+        if hasattr(config, "memory") and config.memory:
+            memory_db_path = getattr(config.memory, "db_path", memory_db_path)
+        self.tool_registry.add_tools(
+            MemoryTool(db_path=memory_db_path),
+            source="local",
+        )
+
+        self.available_tools = self.tool_registry.collection
+        self.use_tool_search = True
+        self.core_tool_names = [
+            "tool_search",
+            "task",  # Add task tool to core tools
+            "memory",  # Add memory tool to core tools
+            StrReplaceEditor().name,
+            Bash().name,
+            PythonExecute().name,
+            AskHuman().name,
+            Terminate().name,
+        ]
+
+        # Phase 1: Initialize context manager for long-running agents
+        memory_enabled = True
+        compaction_threshold = 100000
+        compaction_strategy = "simple"
+        if hasattr(config, "memory") and config.memory:
+            memory_enabled = getattr(config.memory, "enabled", True)
+            compaction_threshold = getattr(config.memory, "compaction_threshold_tokens", 100000)
+            compaction_strategy = getattr(config.memory, "strategy", "simple")
+
+        if memory_enabled:
+            self.context_manager = ContextManager(
+                compaction_threshold_tokens=compaction_threshold,
+                strategy=compaction_strategy,
+            )
+            logger.info(f"Context manager enabled: threshold={compaction_threshold}, strategy={compaction_strategy}")
+
+        # Apply effort level from config
         if hasattr(config, "agent") and config.agent:
-            high_effort = getattr(config.agent, "high_effort_mode", False)
-            if high_effort:
-                # Use high-effort max_steps
-                self.max_steps = getattr(config.agent, "max_steps_high_effort", 50)
-                self.effort_level = "high"
-                logger.info(f"High-effort mode enabled: max_steps={self.max_steps}")
-            else:
-                # Use normal max_steps
-                self.max_steps = getattr(config.agent, "max_steps_normal", 20)
-                self.effort_level = "normal"
+            effort = getattr(config.agent, "effort_level", "medium")
+            if effort in ["low", "medium", "high"]:
+                self.effort_level = effort
+                logger.info(f"Effort level set to: {self.effort_level} (effective max_steps={self.effective_max_steps})")
 
         return self
 

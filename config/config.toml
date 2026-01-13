@@ -23,12 +23,40 @@ max_cost_usd = 20.0                        # Total budget limit (informational o
 current_spend = 0.0                        # Track current spend (updated by cost_tracker.py)
 warn_at_thresholds = [10.0, 15.0, 18.0]    # Warning points (no hard limits)
 
-# Agent Configuration (Phase 3)
+# Agent Configuration (Phase 1+)
 [agent]
-high_effort_mode = true                    # Enable for max_steps 30-50 (default: 20)
+effort_level = "medium"                    # Three-tier effort: "low" (10 steps), "medium" (20 steps), "high" (50 steps)
+enable_reflection = true                   # Add reflection prompts every 5 steps in high-effort mode
+
+# Legacy settings (for backward compatibility)
+high_effort_mode = false                   # Deprecated - use effort_level instead
 max_steps_normal = 20                      # Normal mode iteration limit
 max_steps_high_effort = 50                 # High-effort mode iteration limit
-enable_reflection = true                   # Add reflection prompts every 5 steps in high-effort mode
+
+# Phase 1: Memory and Context Management (works with any LLM)
+[memory]
+enabled = true                             # Enable context management
+compaction_threshold_tokens = 100000       # Trigger compaction at this token count
+warning_threshold_percent = 0.8            # Warn at 80% of threshold
+strategy = "simple"                        # Compaction strategy: "simple", "summarize", "composite"
+db_path = "workspace/memory.db"            # SQLite database for persistent memory
+
+# Phase 0: Sub-Agent Configuration (Task Orchestration System)
+[agent.subagents]
+enabled = true                             # Enable Task tool and sub-agent spawning
+explore_max_steps = 10                     # Fast codebase exploration
+plan_max_steps = 20                        # Architecture planning
+code_max_steps = 50                        # Long-running coding sessions
+test_max_steps = 15                        # Testing validation
+build_max_steps = 10                       # Build verification
+review_max_steps = 20                      # Code review
+
+# Coding Agent specific settings
+[agent.subagents.coding]
+enable_initializer_mode = true             # Allow Coding Agent to initialize projects
+feature_list_path = "feature_list.json"    # Path for feature tracking
+progress_log_path = "claude-progress.txt"  # Path for session progress logs
+init_script_path = "init.sh"               # Path for initialization script
 
 # Multi-Agent Flow Configuration (Phase 4)
 [runflow]

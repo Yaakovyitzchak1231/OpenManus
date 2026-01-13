@@ -31,10 +31,60 @@ class ToolCallAgent(ReActAgent):
     special_tool_names: List[str] = Field(default_factory=lambda: [Terminate().name])
 
     tool_calls: List[ToolCall] = Field(default_factory=list)
-    _current_base64_image: Optional[str] = None
+    current_base64_image: Optional[str] = Field(default=None, exclude=True)
+    use_tool_search: bool = False
+    core_tool_names: List[str] = Field(default_factory=list)
+    loaded_tool_names: List[str] = Field(default_factory=list, exclude=True)
 
     max_steps: int = 30
     max_observe: Optional[Union[int, bool]] = None
+
+    def _tools_for_llm(self) -> List[dict]:
+        if not self.use_tool_search:
+            return self.available_tools.to_params()
+
+        allowed = {name.lower() for name in (self.core_tool_names or [])}
+        allowed.update(name.lower() for name in (self.loaded_tool_names or []))
+
+        selected_tools = [
+            tool
+            for tool in self.available_tools.tools
+            if tool.name.lower() in allowed
+        ]
+        return [tool.to_param() for tool in selected_tools]
+
+    def _handle_tool_side_effects(
+        self, *, name: str, args: dict, result: Any
+    ) -> None:
+        if not self.use_tool_search:
+            return
+
+        if name.lower() != "tool_search":
+            return
+
+        output_text = None
+        if hasattr(result, "output"):
+            output_text = getattr(result, "output", None)
+        if not output_text:
+            return
+
+        try:
+            payload = json.loads(output_text)
+        except Exception:
+            return
+
+        matches = payload.get("matches", [])
+        if not isinstance(matches, list):
+            return
+
+        loaded = []
+        for match in matches:
+            if isinstance(match, dict) and match.get("name"):
+                loaded.append(str(match["name"]))
+
+        for tool_name in loaded:
+            if tool_name not in self.loaded_tool_names:
+                self.loaded_tool_names.append(tool_name)
 
     async def think(self) -> bool:
         """Process current state and decide next actions using tools"""
@@ -58,7 +108,7 @@ class ToolCallAgent(ReActAgent):
                     if self.system_prompt
                     else None
                 ),
-                tools=self.available_tools.to_params(),
+                tools=self._tools_for_llm(),
                 tool_choice=self.tool_choices,
             )
         except ValueError:
@@ -151,7 +201,7 @@ class ToolCallAgent(ReActAgent):
         results = []
         for command in self.tool_calls:
             # Reset base64_image for each tool call
-            self._current_base64_image = None
+            self.current_base64_image = None
 
             result = await self.execute_tool(command)
 
@@ -167,7 +217,7 @@ class ToolCallAgent(ReActAgent):
                 content=result,
                 tool_call_id=command.id,
                 name=command.function.name,
-                base64_image=self._current_base64_image,
+                base64_image=self.current_base64_image,
             )
             self.memory.add_message(tool_msg)
             results.append(result)
@@ -195,13 +245,15 @@ class ToolCallAgent(ReActAgent):
                 "tool_result", {"name": name, "result_length": len(str(result))}
             )
 
+            self._handle_tool_side_effects(name=name, args=args, result=result)
+
             # Handle special tools
             await self._handle_special_tool(name=name, result=result)
 
             # Check if result is a ToolResult with base64_image
             if hasattr(result, "base64_image") and result.base64_image:
                 # Store the base64_image for later use in tool_message
-                self._current_base64_image = result.base64_image
+                self.current_base64_image = result.base64_image
 
             # Format result for display (standard case)
             observation = (
