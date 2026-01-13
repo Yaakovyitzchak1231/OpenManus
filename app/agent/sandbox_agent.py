@@ -12,10 +12,12 @@ from app.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from app.tool import Terminate, ToolCollection
 from app.tool.ask_human import AskHuman
 from app.tool.mcp import MCPClients, MCPClientTool
+from app.tool.mcp_code_execution import MCPCodeExecution
 from app.tool.sandbox.sb_browser_tool import SandboxBrowserTool
 from app.tool.sandbox.sb_files_tool import SandboxFilesTool
 from app.tool.sandbox.sb_shell_tool import SandboxShellTool
 from app.tool.sandbox.sb_vision_tool import SandboxVisionTool
+from app.tool.tool_search import ToolSearchTool
 
 
 class SandboxManus(ToolCallAgent):
@@ -58,6 +60,23 @@ class SandboxManus(ToolCallAgent):
     def initialize_helper(self) -> "SandboxManus":
         """Initialize basic components synchronously."""
         self.browser_context_helper = BrowserContextHelper(self)
+
+        self.available_tools.add_tools(
+            ToolSearchTool(tools_provider=lambda: list(self.available_tools.tools))
+        )
+        self.available_tools.add_tools(
+            MCPCodeExecution(
+                mcp_clients=self.mcp_clients, settings=config.mcp_config.code_execution
+            )
+        )
+        self.use_tool_search = True
+        self.core_tool_names = [
+            "tool_search",
+            SandboxFilesTool().name,
+            SandboxShellTool().name,
+            AskHuman().name,
+            Terminate().name,
+        ]
         return self
 
     @classmethod

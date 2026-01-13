@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import ClassVar, Dict, List, Literal, Optional, TYPE_CHECKING
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -8,6 +8,9 @@ from app.llm import LLM
 from app.logger import logger
 from app.sandbox.client import SANDBOX_CLIENT
 from app.schema import ROLE_TYPE, AgentState, Memory, Message
+
+if TYPE_CHECKING:
+    from app.memory import ContextManager
 
 
 class BaseAgent(BaseModel):
@@ -41,13 +44,25 @@ class BaseAgent(BaseModel):
     max_steps: int = Field(default=10, description="Maximum steps before termination")
     current_step: int = Field(default=0, description="Current step in execution")
 
-    # Phase 2/3: High-effort mode support
-    effort_level: str = Field(
-        default="normal",
-        description="Effort level: 'normal' (default) or 'high' (extended thinking with more steps)",
+    # Three-tier effort control
+    effort_level: Literal["low", "medium", "high"] = Field(
+        default="medium",
+        description="Effort level: 'low' (10 steps, quick), 'medium' (20 steps, balanced), 'high' (50 steps, thorough)",
     )
 
+    # Context management for long-running agents (works with any LLM)
+    context_manager: Optional["ContextManager"] = Field(default=None, exclude=True)
+
     duplicate_threshold: int = 2
+
+    # Effort level to max steps mapping (class variable, not a field)
+    EFFORT_STEPS: ClassVar[Dict[str, int]] = {"low": 10, "medium": 20, "high": 50}
+
+    @property
+    def effective_max_steps(self) -> int:
+        """Get max steps based on effort level, or use explicit max_steps if set higher"""
+        effort_steps = self.EFFORT_STEPS.get(self.effort_level, 20)
+        return max(self.max_steps, effort_steps)
 
     class Config:
         arbitrary_types_allowed = True
@@ -165,13 +180,26 @@ class BaseAgent(BaseModel):
         if request:
             self.update_memory("user", request)
 
+        # Use effective_max_steps which considers effort_level
+        max_steps_limit = self.effective_max_steps
+
         results: List[str] = []
         async with self.state_context(AgentState.RUNNING):
             while (
-                self.current_step < self.max_steps and self.state != AgentState.FINISHED
+                self.current_step < max_steps_limit and self.state != AgentState.FINISHED
             ):
                 self.current_step += 1
-                logger.info(f"Executing step {self.current_step}/{self.max_steps}")
+                logger.info(f"Executing step {self.current_step}/{max_steps_limit}")
+
+                # Context management: compact if needed before each step
+                if self.context_manager:
+                    try:
+                        self.memory.messages = await self.context_manager.compact_if_needed(
+                            self.memory.messages, self.llm
+                        )
+                    except Exception as e:
+                        logger.warning(f"Context compaction failed: {e}")
+
                 self._record_event("step_start", {"step": self.current_step})
                 step_result = await self.step()
                 self._record_event(
@@ -188,10 +216,10 @@ class BaseAgent(BaseModel):
 
                 results.append(f"Step {self.current_step}: {step_result}")
 
-            if self.current_step >= self.max_steps:
+            if self.current_step >= max_steps_limit:
                 self.current_step = 0
                 self.state = AgentState.IDLE
-                results.append(f"Terminated: Reached max steps ({self.max_steps})")
+                results.append(f"Terminated: Reached max steps ({max_steps_limit})")
         await SANDBOX_CLIENT.cleanup()
         summary = self.get_run_summary()
         self._record_event("run_end", summary)

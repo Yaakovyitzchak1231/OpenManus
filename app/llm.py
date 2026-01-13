@@ -1,4 +1,8 @@
+import hashlib
+import json
 import math
+import time
+from collections import OrderedDict
 from typing import Dict, List, Optional, Union
 
 import tiktoken
@@ -173,6 +177,9 @@ class TokenCounter:
 
 class LLM:
     _instances: Dict[str, "LLM"] = {}
+    _response_cache: "OrderedDict[str, dict]" = OrderedDict()
+    _response_cache_max_entries: int = 256
+    _response_cache_ttl_seconds: int = 15 * 60
 
     def __new__(
         cls, config_name: str = "default", llm_config: Optional[LLMSettings] = None
@@ -225,6 +232,31 @@ class LLM:
                 self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
 
             self.token_counter = TokenCounter(self.tokenizer)
+            self.enable_response_cache = True
+
+    @classmethod
+    def _cache_get(cls, key: str) -> Optional[dict]:
+        entry = cls._response_cache.get(key)
+        if not entry:
+            return None
+        expires_at = entry.get("expires_at")
+        if isinstance(expires_at, (int, float)) and time.time() > expires_at:
+            cls._response_cache.pop(key, None)
+            return None
+        cls._response_cache.move_to_end(key)
+        return entry
+
+    @classmethod
+    def _cache_set(cls, key: str, payload: dict) -> None:
+        cls._response_cache[key] = payload
+        cls._response_cache.move_to_end(key)
+        while len(cls._response_cache) > cls._response_cache_max_entries:
+            cls._response_cache.popitem(last=False)
+
+    @staticmethod
+    def _hash_cache_key(payload: dict) -> str:
+        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
 
     def count_tokens(self, text: str) -> int:
         """Calculate the number of tokens in a text"""
