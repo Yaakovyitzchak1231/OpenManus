@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 from uuid import uuid4
 
@@ -11,6 +10,7 @@ from pydantic import BaseModel
 
 from app.config import config
 from app.harness.recording import RunRecorder
+
 
 if TYPE_CHECKING:
     from app.agent.manus import Manus
@@ -48,9 +48,10 @@ def _html_page() -> str:
   <meta charset=\"utf-8\" />
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>OpenManus Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=Libre+Baskerville:ital@0;1&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=Libre+Baskerville:ital@0;1&display=swap');
-
     :root {
       --bg-a: #f6f1e6;
       --bg-b: #ffe8d6;
