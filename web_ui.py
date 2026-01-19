@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 from uuid import uuid4
 
@@ -11,6 +10,7 @@ from pydantic import BaseModel
 
 from app.config import config
 from app.harness.recording import RunRecorder
+
 
 if TYPE_CHECKING:
     from app.agent.manus import Manus
@@ -305,6 +305,7 @@ def _html_page() -> str:
     const formEl = document.getElementById('chat-form');
     const messageEl = document.getElementById('message');
     const statusEl = document.getElementById('status');
+    const submitBtn = formEl.querySelector('button');
     let sessionId = localStorage.getItem('openmanus.session');
 
     const addMessage = (role, content) => {
@@ -340,44 +341,61 @@ def _html_page() -> str:
         return;
       }
 
+      const originalText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      messageEl.disabled = true;
+      formEl.setAttribute('aria-busy', 'true');
+
       addMessage('user', message);
       messageEl.value = '';
       updateStatus('Thinking...');
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, session_id: sessionId })
-      });
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, session_id: sessionId })
+        });
 
-      if (!response.ok) {
-        updateStatus('Error');
-        addMessage('system', 'Something went wrong while calling the agent.');
-        return;
-      }
-
-      const payload = await response.json();
-      sessionId = payload.session_id;
-      localStorage.setItem('openmanus.session', sessionId);
-      if (payload.summary) {
-        const parts = [`Session: ${sessionId}`];
-        if (payload.summary.steps !== undefined) {
-          parts.push(`steps: ${payload.summary.steps}`);
-        }
-        if (payload.summary.tool_calls !== undefined) {
-          parts.push(`tools: ${payload.summary.tool_calls}`);
-        }
-        updateStatus(parts.join(' | '));
-      } else {
-        updateStatus(`Session: ${sessionId}`);
-      }
-
-      (payload.messages || []).forEach((msg) => {
-        if (msg.role === 'user') {
+        if (!response.ok) {
+          updateStatus('Error');
+          addMessage('system', 'Something went wrong while calling the agent.');
           return;
         }
-        addMessage(msg.role || 'assistant', msg.content || '');
-      });
+
+        const payload = await response.json();
+        sessionId = payload.session_id;
+        localStorage.setItem('openmanus.session', sessionId);
+        if (payload.summary) {
+          const parts = [`Session: ${sessionId}`];
+          if (payload.summary.steps !== undefined) {
+            parts.push(`steps: ${payload.summary.steps}`);
+          }
+          if (payload.summary.tool_calls !== undefined) {
+            parts.push(`tools: ${payload.summary.tool_calls}`);
+          }
+          updateStatus(parts.join(' | '));
+        } else {
+          updateStatus(`Session: ${sessionId}`);
+        }
+
+        (payload.messages || []).forEach((msg) => {
+          if (msg.role === 'user') {
+            return;
+          }
+          addMessage(msg.role || 'assistant', msg.content || '');
+        });
+      } catch (e) {
+        updateStatus('Error');
+        addMessage('system', 'Connection failed.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        messageEl.disabled = false;
+        formEl.removeAttribute('aria-busy');
+        messageEl.focus();
+      }
     });
   </script>
 </body>
