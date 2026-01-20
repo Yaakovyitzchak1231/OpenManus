@@ -255,7 +255,19 @@ class LLM:
 
     @staticmethod
     def _hash_cache_key(payload: dict) -> str:
-        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        # Helper to convert arbitrary objects (like Message models) to dicts/lists
+        def json_default(obj):
+            if hasattr(obj, "to_dict"):
+                return obj.to_dict()
+            if hasattr(obj, "dict"):
+                return obj.dict()
+            if hasattr(obj, "__dict__"):
+                return obj.__dict__
+            return str(obj)
+
+        encoded = json.dumps(
+            payload, sort_keys=True, ensure_ascii=False, default=json_default
+        ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
     def count_tokens(self, text: str) -> int:
@@ -467,6 +479,26 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
+            # Check cache
+            cache_key = None
+            if self.enable_response_cache:
+                cache_payload = {
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": params.get("temperature"),
+                    "max_tokens": params.get("max_tokens")
+                    or params.get("max_completion_tokens"),
+                }
+                cache_key = self._hash_cache_key(cache_payload)
+                cached_entry = self._cache_get(cache_key)
+                if cached_entry:
+                    logger.info("Cache hit for LLM response")
+                    response_text = cached_entry["response"]
+                    if stream:
+                        # Simulate streaming by printing the cached response
+                        print(response_text)
+                    return response_text
+
             if not stream:
                 # Non-streaming request
                 response = await self.client.chat.completions.create(
@@ -481,7 +513,17 @@ class LLM:
                     response.usage.prompt_tokens, response.usage.completion_tokens
                 )
 
-                return response.choices[0].message.content
+                response_text = response.choices[0].message.content
+                if self.enable_response_cache and cache_key:
+                    self._cache_set(
+                        cache_key,
+                        {
+                            "response": response_text,
+                            "expires_at": time.time()
+                            + self._response_cache_ttl_seconds,
+                        },
+                    )
+                return response_text
 
             # Streaming request, For streaming, update estimated token count before making the request
             self.update_token_count(input_tokens)
@@ -507,6 +549,15 @@ class LLM:
                 f"Estimated completion tokens for streaming response: {completion_tokens}"
             )
             self.total_completion_tokens += completion_tokens
+
+            if self.enable_response_cache and cache_key:
+                self._cache_set(
+                    cache_key,
+                    {
+                        "response": full_response,
+                        "expires_at": time.time() + self._response_cache_ttl_seconds,
+                    },
+                )
 
             return full_response
 
@@ -639,6 +690,29 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
+            # Check cache
+            cache_key = None
+            if self.enable_response_cache:
+                # Add images to cache key
+                # We need to include images in the cache payload
+                # Since images can be large, we might want to hash them first or just include the URLs/structure
+                # For now, we'll serialize the entire messages structure which includes the images
+                cache_payload = {
+                    "model": self.model,
+                    "messages": all_messages,
+                    "temperature": params.get("temperature"),
+                    "max_tokens": params.get("max_tokens")
+                    or params.get("max_completion_tokens"),
+                }
+                cache_key = self._hash_cache_key(cache_payload)
+                cached_entry = self._cache_get(cache_key)
+                if cached_entry:
+                    logger.info("Cache hit for LLM response (with images)")
+                    response_text = cached_entry["response"]
+                    if stream:
+                        print(response_text)
+                    return response_text
+
             # Handle non-streaming request
             if not stream:
                 response = await self.client.chat.completions.create(**params)
@@ -647,7 +721,19 @@ class LLM:
                     raise ValueError("Empty or invalid response from LLM")
 
                 self.update_token_count(response.usage.prompt_tokens)
-                return response.choices[0].message.content
+                response_text = response.choices[0].message.content
+
+                if self.enable_response_cache and cache_key:
+                    self._cache_set(
+                        cache_key,
+                        {
+                            "response": response_text,
+                            "expires_at": time.time()
+                            + self._response_cache_ttl_seconds,
+                        },
+                    )
+
+                return response_text
 
             # Handle streaming request
             self.update_token_count(input_tokens)
@@ -664,6 +750,15 @@ class LLM:
 
             if not full_response:
                 raise ValueError("Empty response from streaming LLM")
+
+            if self.enable_response_cache and cache_key:
+                self._cache_set(
+                    cache_key,
+                    {
+                        "response": full_response,
+                        "expires_at": time.time() + self._response_cache_ttl_seconds,
+                    },
+                )
 
             return full_response
 
