@@ -1,9 +1,13 @@
 from collections import OrderedDict
 from unittest.mock import MagicMock, patch
+
 import pytest
+
 from app.llm import LLM
 
+
 # --- Dummy Classes for Mocking OpenAI Client ---
+
 
 class DummyResponse:
     def __init__(self, content):
@@ -12,6 +16,7 @@ class DummyResponse:
         self.usage = MagicMock()
         self.usage.prompt_tokens = 10
         self.usage.completion_tokens = 5
+
 
 class DummyStream:
     def __init__(self, content_chunks):
@@ -42,6 +47,7 @@ class DummyStream:
 
         return Chunk(c)
 
+
 class DummyClient:
     def __init__(self, stream_content=None, static_content=None):
         self.chat = MagicMock()
@@ -60,21 +66,26 @@ class DummyClient:
                 return DummyResponse("Default Response")
             return DummyResponse(self.static_content)
 
+
 class Completions:
     def __init__(self, client):
         self.create_obj = client
         self.create = client.create
 
+
 class Chat:
     def __init__(self, client):
         self.completions = Completions(client)
+
 
 class FullClient:
     def __init__(self, stream_content=None, static_content=None):
         self.dummy_client = DummyClient(stream_content, static_content)
         self.chat = Chat(self.dummy_client)
 
+
 # --- Tests ---
+
 
 @pytest.mark.asyncio
 async def test_llm_ask_caching():
@@ -97,6 +108,7 @@ async def test_llm_ask_caching():
         response2 = await llm.ask(messages, stream=False)
         assert response2 == "Cached Response"
         assert client.dummy_client.call_count == 1
+
 
 @pytest.mark.asyncio
 async def test_llm_ask_caching_streaming(capsys):
@@ -123,6 +135,7 @@ async def test_llm_ask_caching_streaming(capsys):
         assert response2 == "Streamed Response"
         assert "Streamed Response" in captured.out
         assert client.dummy_client.call_count == 1
+
 
 @pytest.mark.asyncio
 async def test_llm_ask_with_images_caching():
