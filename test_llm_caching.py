@@ -27,7 +27,6 @@ async def test_llm_ask_caching(capsys):
         LLM._instances = {}
         LLM._response_cache = OrderedDict()
         llm = LLM()
-        llm.enable_response_cache = True
 
         messages = [{"role": "user", "content": "Hello"}]
 
@@ -68,7 +67,6 @@ async def test_llm_ask_caching_streaming(capsys):
         LLM._instances = {}
         LLM._response_cache = OrderedDict()
         llm = LLM()
-        llm.enable_response_cache = True
 
         messages = [{"role": "user", "content": "Stream me"}]
 
@@ -113,7 +111,6 @@ async def test_llm_ask_with_images_caching():
         # Mock MULTIMODAL_MODELS check by setting model directly
         llm = LLM()
         llm.model = "gpt-4o"
-        llm.enable_response_cache = True
 
         messages = [{"role": "user", "content": "Look at this"}]
         images = ["http://example.com/image.jpg"]
