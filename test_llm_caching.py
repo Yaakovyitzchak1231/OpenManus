@@ -28,14 +28,10 @@ async def test_llm_ask_caching(capsys):
         LLM._response_cache = OrderedDict()
         llm = LLM()
 
-        # DEBUG
-        print(f"DEBUG: Enable cache: {llm.enable_response_cache}")
-
         messages = [{"role": "user", "content": "Hello"}]
 
         # First call - should hit API
         response1 = await llm.ask(messages, stream=False)
-        print(f"DEBUG: Cache size after 1st call: {len(LLM._response_cache)}")
         assert response1 == "Cached Response"
         assert mock_client.chat.completions.create.call_count == 1
 
@@ -52,7 +48,6 @@ async def test_llm_ask_caching(capsys):
 @pytest.mark.asyncio
 async def test_llm_ask_caching_streaming(capsys):
     """Test caching for LLM.ask method with streaming"""
-
     # Create a dummy class to handle async streaming instead of complex AsyncMock
     class DummyStream:
         def __init__(self):
@@ -91,20 +86,17 @@ async def test_llm_ask_caching_streaming(capsys):
             self.chat = MagicMock()
             # We can't easily mock the method call without AsyncMock or a custom class for 'completions'
             # Let's use a custom class structure for client
+            pass
 
         async def create(self, **kwargs):
-            self.call_count += 1
-            return DummyStream()
+             self.call_count += 1
+             return DummyStream()
 
     # We need a proper client structure that LLM expects: self.client.chat.completions.create
     class Completions:
         def __init__(self):
-            self.create_obj = (
-                DummyClient()
-            )  # reusing class name for the create method holder
-            self.create_obj.call_count = (
-                0  # Initialize call_count here on the object instance!
-            )
+            self.create_obj = DummyClient() # reusing class name for the create method holder
+            self.create_obj.call_count = 0 # Initialize call_count here on the object instance!
             self.create = self.create_obj.create
 
     class Chat:
@@ -123,14 +115,12 @@ async def test_llm_ask_caching_streaming(capsys):
         LLM._instances = {}
         LLM._response_cache = OrderedDict()
         llm = LLM()
-        print(f"DEBUG: Enable cache (stream): {llm.enable_response_cache}")
 
         messages = [{"role": "user", "content": "Stream me"}]
 
         # First call - Stream=True
         # We need to capture stdout to verify printing
         response1 = await llm.ask(messages, stream=True)
-        print(f"DEBUG: Cache size after 1st call (stream): {len(LLM._response_cache)}")
         captured = capsys.readouterr()
         assert response1 == "Streamed Response"
         assert "Streamed Response" in captured.out
@@ -142,9 +132,7 @@ async def test_llm_ask_caching_streaming(capsys):
         captured = capsys.readouterr()
         assert response2 == "Streamed Response"
         assert "Streamed Response" in captured.out
-        assert (
-            dummy_client.chat.completions.create_obj.call_count == 1
-        ), "Cache miss! API called twice."
+        assert dummy_client.chat.completions.create_obj.call_count == 1, "Cache miss! API called twice."
 
 
 @pytest.mark.asyncio
