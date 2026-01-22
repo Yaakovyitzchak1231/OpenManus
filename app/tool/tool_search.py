@@ -110,4 +110,3 @@ class ToolSearchTool(BaseTool):
             ),
         }
         return ToolResult(output=json.dumps(payload, ensure_ascii=False, indent=2))
-

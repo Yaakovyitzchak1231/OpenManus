@@ -3,6 +3,7 @@ import json
 import math
 import time
 from collections import OrderedDict
+from functools import lru_cache
 from typing import Dict, List, Optional, Union
 
 import tiktoken
@@ -96,6 +97,7 @@ class TokenCounter:
             self._calculate_high_detail_tokens(1024, 1024) if detail == "high" else 1024
         )
 
+    @lru_cache(maxsize=1024)
     def _calculate_high_detail_tokens(self, width: int, height: int) -> int:
         """Calculate tokens for high detail images based on dimensions"""
         # Step 1: Scale to fit in MAX_SIZE x MAX_SIZE square
@@ -255,7 +257,9 @@ class LLM:
 
     @staticmethod
     def _hash_cache_key(payload: dict) -> str:
-        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode(
+            "utf-8"
+        )
         return hashlib.sha256(encoded).hexdigest()
 
     def count_tokens(self, text: str) -> int:
