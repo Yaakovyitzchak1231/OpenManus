@@ -255,10 +255,18 @@ class LLM:
 
     @staticmethod
     def _hash_cache_key(payload: dict) -> str:
-        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode(
-            "utf-8"
-        )
-        return hashlib.sha256(encoded).hexdigest()
+        try:
+            encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode(
+                "utf-8"
+            )
+            return hashlib.sha256(encoded).hexdigest()
+        except TypeError as e:
+            # Fallback for non-serializable objects (e.g. if messages contain objects)
+            # This is a best-effort fallback to avoid crashing
+            logger.warning(
+                f"Cache key generation failed: {e}. Caching disabled for this request."
+            )
+            return None
 
     def count_tokens(self, text: str) -> int:
         """Calculate the number of tokens in a text"""

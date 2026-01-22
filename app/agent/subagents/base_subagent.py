@@ -5,8 +5,7 @@ Foundation class for all specialized sub-agents. Sub-agents inherit from BaseAge
 but have specialized prompts and tool configurations for specific tasks.
 """
 
-from typing import Any, Dict, Optional
-
+from typing import Dict, Any, Optional
 from pydantic import Field
 
 from app.agent.base import BaseAgent
@@ -28,15 +27,9 @@ class BaseSubAgent(BaseAgent):
     """
 
     # Sub-agent configuration
-    agent_type: str = Field(
-        ..., description="Type of sub-agent (explore, plan, code, etc.)"
-    )
-    task_description: str = Field(
-        ..., description="Task the sub-agent should accomplish"
-    )
-    task_context: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional context for the task"
-    )
+    agent_type: str = Field(..., description="Type of sub-agent (explore, plan, code, etc.)")
+    task_description: str = Field(..., description="Task the sub-agent should accomplish")
+    task_context: Dict[str, Any] = Field(default_factory=dict, description="Additional context for the task")
 
     # Override defaults with sub-agent specific values
     max_steps: int = Field(default=20, description="Maximum steps for this sub-agent")
@@ -44,7 +37,9 @@ class BaseSubAgent(BaseAgent):
     def __init__(self, **data):
         """Initialize sub-agent with task-specific configuration"""
         super().__init__(**data)
-        logger.info(f"🤖 Initialized {self.agent_type} sub-agent: {self.name}")
+        logger.info(
+            f"🤖 Initialized {self.agent_type} sub-agent: {self.name}"
+        )
 
     async def run(self, request: Optional[str] = None) -> str:
         """
@@ -104,7 +99,10 @@ class BaseSubAgent(BaseAgent):
 
     @classmethod
     def create_for_task(
-        cls, task: str, context: Optional[Dict[str, Any]] = None, **kwargs
+        cls,
+        task: str,
+        context: Optional[Dict[str, Any]] = None,
+        **kwargs
     ) -> "BaseSubAgent":
         """
         Factory method to create a sub-agent for a specific task.
@@ -117,4 +115,8 @@ class BaseSubAgent(BaseAgent):
         Returns:
             Configured sub-agent instance
         """
-        return cls(task_description=task, task_context=context or {}, **kwargs)
+        return cls(
+            task_description=task,
+            task_context=context or {},
+            **kwargs
+        )

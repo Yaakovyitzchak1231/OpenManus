@@ -22,17 +22,16 @@ Usage:
     await memory_tool.execute("store", key="decision_1", value="Use SQLite", category="decisions")
 """
 
-from .compaction_strategies import (
-    CompactionStrategy,
-    CompositeStrategy,
-    MessageSummarizer,
-    SelectiveRetention,
-    ThinkingClearer,
-    ToolResultClearer,
-)
 from .context_manager import ContextManager
 from .memory_tool import MemoryTool
-
+from .compaction_strategies import (
+    CompactionStrategy,
+    ToolResultClearer,
+    ThinkingClearer,
+    MessageSummarizer,
+    SelectiveRetention,
+    CompositeStrategy
+)
 
 __all__ = [
     "ContextManager",
@@ -42,5 +41,5 @@ __all__ = [
     "ThinkingClearer",
     "MessageSummarizer",
     "SelectiveRetention",
-    "CompositeStrategy",
+    "CompositeStrategy"
 ]
