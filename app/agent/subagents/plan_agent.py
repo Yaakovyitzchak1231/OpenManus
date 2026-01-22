@@ -77,9 +77,7 @@ class PlanAgent(BaseSubAgent):
 
     # Configuration for thorough planning
     max_steps: int = Field(default=20, description="More steps for thorough planning")
-    effort_level: str = Field(
-        default="high", description="High effort for quality planning"
-    )
+    effort_level: str = Field(default="high", description="High effort for quality planning")
 
     # Specialized prompts
     system_prompt: str = PLAN_SYSTEM_PROMPT
@@ -88,8 +86,8 @@ class PlanAgent(BaseSubAgent):
     # Tool set for planning
     available_tools: ToolCollection = Field(
         default_factory=lambda: ToolCollection(
-            Bash(),  # For exploring codebase structure, reading files with cat
-            Terminate(),  # To signal completion
+            Bash(),           # For exploring codebase structure, reading files with cat
+            Terminate(),      # To signal completion
         )
     )
 
