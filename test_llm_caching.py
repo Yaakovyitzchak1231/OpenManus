@@ -61,7 +61,17 @@ async def test_llm_ask_caching_streaming(capsys):
                 chunk.choices[0].delta.content = c
                 yield chunk
 
-        mock_client.chat.completions.create.side_effect = mock_stream
+        # Make the create call return the async generator (which is awaitable in the sense that it is the result of an async function)
+        # But wait, OpenAI client returns an object that IS async iterable.
+        # If we use side_effect = async_gen_func, calling mock() returns the async generator object.
+        # If the code awaits it: await mock(), it fails because async gen is not awaitable.
+        # The code in llm.py does: response = await client.create(...)
+        # So we need mock() to be an async function that returns an async iterable.
+
+        async def create_return(*args, **kwargs):
+            return mock_stream()
+
+        mock_client.chat.completions.create.side_effect = create_return
 
         # Reset LLM singleton and cache
         LLM._instances = {}
