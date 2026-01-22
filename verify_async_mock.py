@@ -1,5 +1,6 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
+
 
 async def main():
     mock = AsyncMock()
@@ -20,6 +21,7 @@ async def main():
 
     except Exception as e:
         print(f"Caught error: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
