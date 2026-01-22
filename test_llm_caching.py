@@ -48,31 +48,40 @@ async def test_llm_ask_caching(capsys):
 @pytest.mark.asyncio
 async def test_llm_ask_caching_streaming(capsys):
     """Test caching for LLM.ask method with streaming"""
-    with patch("app.llm.AsyncOpenAI") as mock_openai:
-        mock_client = AsyncMock()
-        mock_openai.return_value = mock_client
+    # Create a dummy class to handle async streaming instead of complex AsyncMock
+    class DummyStream:
+        def __init__(self):
+            self.chunks = ["Streamed", " ", "Response"]
 
-        # Mock streaming response
-        async def mock_stream(*args, **kwargs):
-            chunks = ["Streamed", " ", "Response"]
-            for c in chunks:
-                chunk = MagicMock()
-                chunk.choices = [MagicMock()]
-                chunk.choices[0].delta.content = c
-                yield chunk
+        def __aiter__(self):
+            self.idx = 0
+            return self
 
-        # Make the create call return the async generator (which is awaitable in the sense that it is the result of an async function)
-        # But wait, OpenAI client returns an object that IS async iterable.
-        # If we use side_effect = async_gen_func, calling mock() returns the async generator object.
-        # If the code awaits it: await mock(), it fails because async gen is not awaitable.
-        # The code in llm.py does: response = await client.create(...)
-        # So we need mock() to be an async function that returns an async iterable.
+        async def __anext__(self):
+            if self.idx >= len(self.chunks):
+                raise StopAsyncIteration
 
-        async def create_return(*args, **kwargs):
-            return mock_stream()
+            c = self.chunks[self.idx]
+            self.idx += 1
 
-        mock_client.chat.completions.create.side_effect = create_return
+            chunk = MagicMock()
+            chunk.choices = [MagicMock()]
+            chunk.choices[0].delta.content = c
+            return chunk
 
+    class DummyClient:
+        def __init__(self):
+            self.chat = MagicMock()
+            self.chat.completions.create = AsyncMock(side_effect=self._create)
+            self.call_count = 0
+
+        async def _create(self, **kwargs):
+            self.call_count += 1
+            return DummyStream()
+
+    dummy_client = DummyClient()
+
+    with patch("app.llm.AsyncOpenAI", return_value=dummy_client):
         # Reset LLM singleton and cache
         LLM._instances = {}
         LLM._response_cache = OrderedDict()
@@ -86,7 +95,7 @@ async def test_llm_ask_caching_streaming(capsys):
         captured = capsys.readouterr()
         assert response1 == "Streamed Response"
         assert "Streamed Response" in captured.out
-        assert mock_client.chat.completions.create.call_count == 1
+        assert dummy_client.call_count == 1
 
         # Second call - Stream=True
         # Should hit cache and still print
@@ -94,9 +103,7 @@ async def test_llm_ask_caching_streaming(capsys):
         captured = capsys.readouterr()
         assert response2 == "Streamed Response"
         assert "Streamed Response" in captured.out
-        assert (
-            mock_client.chat.completions.create.call_count == 1
-        ), "Cache miss! API called twice."
+        assert dummy_client.call_count == 1, "Cache miss! API called twice."
 
 
 @pytest.mark.asyncio
