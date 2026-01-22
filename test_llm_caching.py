@@ -64,22 +64,50 @@ async def test_llm_ask_caching_streaming(capsys):
             c = self.chunks[self.idx]
             self.idx += 1
 
-            chunk = MagicMock()
-            chunk.choices = [MagicMock()]
-            chunk.choices[0].delta.content = c
-            return chunk
+            # Create a simple object structure to mimic the response chunk
+            # chunk.choices[0].delta.content
+            class Delta:
+                def __init__(self, content):
+                    self.content = content
+
+            class Choice:
+                def __init__(self, content):
+                    self.delta = Delta(content)
+
+            class Chunk:
+                def __init__(self, content):
+                    self.choices = [Choice(content)]
+
+            return Chunk(c)
 
     class DummyClient:
         def __init__(self):
+            # Mock the structure: client.chat.completions.create
             self.chat = MagicMock()
-            self.chat.completions.create = AsyncMock(side_effect=self._create)
+            # We can't easily mock the method call without AsyncMock or a custom class for 'completions'
+            # Let's use a custom class structure for client
             self.call_count = 0
 
-        async def _create(self, **kwargs):
-            self.call_count += 1
-            return DummyStream()
+        async def create(self, **kwargs):
+             self.call_count += 1
+             return DummyStream()
 
-    dummy_client = DummyClient()
+    # We need a proper client structure that LLM expects: self.client.chat.completions.create
+    class Completions:
+        def __init__(self):
+            self.create_obj = DummyClient() # reusing class name for the create method holder
+            self.create = self.create_obj.create
+
+    class Chat:
+        def __init__(self):
+            self.completions = Completions()
+
+    class FullClient:
+        def __init__(self):
+            self.chat = Chat()
+
+    dummy_client = FullClient()
+    # We need to access the call counter. It's inside dummy_client.chat.completions.create_obj.call_count
 
     with patch("app.llm.AsyncOpenAI", return_value=dummy_client):
         # Reset LLM singleton and cache
@@ -95,7 +123,7 @@ async def test_llm_ask_caching_streaming(capsys):
         captured = capsys.readouterr()
         assert response1 == "Streamed Response"
         assert "Streamed Response" in captured.out
-        assert dummy_client.call_count == 1
+        assert dummy_client.chat.completions.create_obj.call_count == 1
 
         # Second call - Stream=True
         # Should hit cache and still print
@@ -103,7 +131,7 @@ async def test_llm_ask_caching_streaming(capsys):
         captured = capsys.readouterr()
         assert response2 == "Streamed Response"
         assert "Streamed Response" in captured.out
-        assert dummy_client.call_count == 1, "Cache miss! API called twice."
+        assert dummy_client.chat.completions.create_obj.call_count == 1, "Cache miss! API called twice."
 
 
 @pytest.mark.asyncio
