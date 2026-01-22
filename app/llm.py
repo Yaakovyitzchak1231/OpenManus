@@ -3,6 +3,7 @@ import json
 import math
 import time
 from collections import OrderedDict
+from functools import lru_cache
 from typing import Dict, List, Optional, Union
 
 import tiktoken
@@ -96,6 +97,7 @@ class TokenCounter:
             self._calculate_high_detail_tokens(1024, 1024) if detail == "high" else 1024
         )
 
+    @lru_cache(maxsize=1024)
     def _calculate_high_detail_tokens(self, width: int, height: int) -> int:
         """Calculate tokens for high detail images based on dimensions"""
         # Step 1: Scale to fit in MAX_SIZE x MAX_SIZE square
@@ -255,18 +257,10 @@ class LLM:
 
     @staticmethod
     def _hash_cache_key(payload: dict) -> str:
-        try:
-            encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode(
-                "utf-8"
-            )
-            return hashlib.sha256(encoded).hexdigest()
-        except TypeError as e:
-            # Fallback for non-serializable objects (e.g. if messages contain objects)
-            # This is a best-effort fallback to avoid crashing
-            logger.warning(
-                f"Cache key generation failed: {e}. Caching disabled for this request."
-            )
-            return None
+        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode(
+            "utf-8"
+        )
+        return hashlib.sha256(encoded).hexdigest()
 
     def count_tokens(self, text: str) -> int:
         """Calculate the number of tokens in a text"""
@@ -358,7 +352,6 @@ class LLM:
                 message = message.to_dict()
 
             if isinstance(message, dict):
-                message = message.copy()  # Prevent side effects
                 # If message is a dict, ensure it has required fields
                 if "role" not in message:
                     raise ValueError("Message dict must contain 'role' field")
@@ -478,19 +471,6 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
-            # Check cache
-            cache_key = None
-            if self.enable_response_cache:
-                cache_params = params.copy()
-                cache_params.pop("stream", None)
-                cache_key = self._hash_cache_key(cache_params)
-                cached_response = self._cache_get(cache_key)
-                if cached_response:
-                    response_text = cached_response["content"]
-                    if stream:
-                        print(response_text)
-                    return response_text
-
             if not stream:
                 # Non-streaming request
                 response = await self.client.chat.completions.create(
@@ -505,19 +485,7 @@ class LLM:
                     response.usage.prompt_tokens, response.usage.completion_tokens
                 )
 
-                response_content = response.choices[0].message.content
-
-                if self.enable_response_cache and cache_key:
-                    self._cache_set(
-                        cache_key,
-                        {
-                            "content": response_content,
-                            "expires_at": time.time()
-                            + self._response_cache_ttl_seconds,
-                        },
-                    )
-
-                return response_content
+                return response.choices[0].message.content
 
             # Streaming request, For streaming, update estimated token count before making the request
             self.update_token_count(input_tokens)
@@ -543,15 +511,6 @@ class LLM:
                 f"Estimated completion tokens for streaming response: {completion_tokens}"
             )
             self.total_completion_tokens += completion_tokens
-
-            if self.enable_response_cache and cache_key:
-                self._cache_set(
-                    cache_key,
-                    {
-                        "content": full_response,
-                        "expires_at": time.time() + self._response_cache_ttl_seconds,
-                    },
-                )
 
             return full_response
 
@@ -684,19 +643,6 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
-            # Check cache
-            cache_key = None
-            if self.enable_response_cache:
-                cache_params = params.copy()
-                cache_params.pop("stream", None)
-                cache_key = self._hash_cache_key(cache_params)
-                cached_response = self._cache_get(cache_key)
-                if cached_response:
-                    response_text = cached_response["content"]
-                    if stream:
-                        print(response_text)
-                    return response_text
-
             # Handle non-streaming request
             if not stream:
                 response = await self.client.chat.completions.create(**params)
@@ -705,19 +651,7 @@ class LLM:
                     raise ValueError("Empty or invalid response from LLM")
 
                 self.update_token_count(response.usage.prompt_tokens)
-                response_content = response.choices[0].message.content
-
-                if self.enable_response_cache and cache_key:
-                    self._cache_set(
-                        cache_key,
-                        {
-                            "content": response_content,
-                            "expires_at": time.time()
-                            + self._response_cache_ttl_seconds,
-                        },
-                    )
-
-                return response_content
+                return response.choices[0].message.content
 
             # Handle streaming request
             self.update_token_count(input_tokens)
@@ -734,15 +668,6 @@ class LLM:
 
             if not full_response:
                 raise ValueError("Empty response from streaming LLM")
-
-            if self.enable_response_cache and cache_key:
-                self._cache_set(
-                    cache_key,
-                    {
-                        "content": full_response,
-                        "expires_at": time.time() + self._response_cache_ttl_seconds,
-                    },
-                )
 
             return full_response
 
