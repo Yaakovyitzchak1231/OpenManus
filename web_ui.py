@@ -291,7 +291,7 @@ def _html_page() -> str:
     <section class=\"panel\">
       <div id=\"messages\" class=\"messages\"></div>
       <form id=\"chat-form\" class=\"composer\">
-        <textarea id=\"message\" placeholder=\"Describe the task you want the agent to complete...\"></textarea>
+        <textarea id=\"message\" placeholder=\"Describe the task you want the agent to complete...\" aria-label=\"Message to Manus\"></textarea>
         <div class=\"controls\">
           <button type=\"submit\">Send to Manus</button>
           <div class=\"meta\" id=\"status\">Session: new</div>
@@ -305,6 +305,7 @@ def _html_page() -> str:
     const formEl = document.getElementById('chat-form');
     const messageEl = document.getElementById('message');
     const statusEl = document.getElementById('status');
+    const submitBtn = formEl.querySelector('button[type=\"submit\"]');
     let sessionId = localStorage.getItem('openmanus.session');
 
     const addMessage = (role, content) => {
@@ -333,6 +334,13 @@ def _html_page() -> str:
       updateStatus(`Session: ${sessionId}`);
     }
 
+    messageEl.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault();
+        formEl.requestSubmit();
+      }
+    });
+
     formEl.addEventListener('submit', async (event) => {
       event.preventDefault();
       const message = messageEl.value.trim();
@@ -342,42 +350,54 @@ def _html_page() -> str:
 
       addMessage('user', message);
       messageEl.value = '';
+
+      messageEl.disabled = true;
+      submitBtn.disabled = true;
+      const originalBtnText = submitBtn.textContent;
+      submitBtn.textContent = 'Thinking...';
       updateStatus('Thinking...');
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, session_id: sessionId })
-      });
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, session_id: sessionId })
+        });
 
-      if (!response.ok) {
-        updateStatus('Error');
-        addMessage('system', 'Something went wrong while calling the agent.');
-        return;
-      }
-
-      const payload = await response.json();
-      sessionId = payload.session_id;
-      localStorage.setItem('openmanus.session', sessionId);
-      if (payload.summary) {
-        const parts = [`Session: ${sessionId}`];
-        if (payload.summary.steps !== undefined) {
-          parts.push(`steps: ${payload.summary.steps}`);
-        }
-        if (payload.summary.tool_calls !== undefined) {
-          parts.push(`tools: ${payload.summary.tool_calls}`);
-        }
-        updateStatus(parts.join(' | '));
-      } else {
-        updateStatus(`Session: ${sessionId}`);
-      }
-
-      (payload.messages || []).forEach((msg) => {
-        if (msg.role === 'user') {
+        if (!response.ok) {
+          updateStatus('Error');
+          addMessage('system', 'Something went wrong while calling the agent.');
           return;
         }
-        addMessage(msg.role || 'assistant', msg.content || '');
-      });
+
+        const payload = await response.json();
+        sessionId = payload.session_id;
+        localStorage.setItem('openmanus.session', sessionId);
+        if (payload.summary) {
+          const parts = [`Session: ${sessionId}`];
+          if (payload.summary.steps !== undefined) {
+            parts.push(`steps: ${payload.summary.steps}`);
+          }
+          if (payload.summary.tool_calls !== undefined) {
+            parts.push(`tools: ${payload.summary.tool_calls}`);
+          }
+          updateStatus(parts.join(' | '));
+        } else {
+          updateStatus(`Session: ${sessionId}`);
+        }
+
+        (payload.messages || []).forEach((msg) => {
+          if (msg.role === 'user') {
+            return;
+          }
+          addMessage(msg.role || 'assistant', msg.content || '');
+        });
+      } finally {
+        messageEl.disabled = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
+        messageEl.focus();
+      }
     });
   </script>
 </body>
