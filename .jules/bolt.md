@@ -1,0 +1,3 @@
+## 2026-01-24 - Mutable Message Modification Breaking Cache
+**Learning:** In `app/llm.py`, the `format_messages` utility appended dictionaries from the input list directly to its output list without copying. When `ask_with_images` subsequently modified the last message to inject images (in-place), it permanently altered the original input list passed by the caller. This caused subsequent calls with the same input variable to have different content (images added multiple times), breaking cache key consistency and causing cache misses.
+**Action:** Always strictly copy mutable dictionaries (e.g., `message.copy()`) when processing lists of messages in utility functions like `format_messages` to ensure inputs remain immutable and reusable for caching.
