@@ -264,6 +264,29 @@ def _html_page() -> str:
       50% { transform: translateY(18px); }
     }
 
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
     @media (max-width: 720px) {
       .panel {
         min-height: 420px;
@@ -344,40 +367,58 @@ def _html_page() -> str:
       messageEl.value = '';
       updateStatus('Thinking...');
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, session_id: sessionId })
-      });
+      const submitBtn = formEl.querySelector('button[type="submit"]');
+      const originalBtnText = submitBtn.innerHTML;
 
-      if (!response.ok) {
-        updateStatus('Error');
-        addMessage('system', 'Something went wrong while calling the agent.');
-        return;
-      }
+      try {
+        submitBtn.disabled = true;
+        messageEl.disabled = true;
+        submitBtn.innerHTML = '<div class="spinner"></div>Processing...';
 
-      const payload = await response.json();
-      sessionId = payload.session_id;
-      localStorage.setItem('openmanus.session', sessionId);
-      if (payload.summary) {
-        const parts = [`Session: ${sessionId}`];
-        if (payload.summary.steps !== undefined) {
-          parts.push(`steps: ${payload.summary.steps}`);
-        }
-        if (payload.summary.tool_calls !== undefined) {
-          parts.push(`tools: ${payload.summary.tool_calls}`);
-        }
-        updateStatus(parts.join(' | '));
-      } else {
-        updateStatus(`Session: ${sessionId}`);
-      }
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, session_id: sessionId })
+        });
 
-      (payload.messages || []).forEach((msg) => {
-        if (msg.role === 'user') {
+        if (!response.ok) {
+          updateStatus('Error');
+          addMessage('system', 'Something went wrong while calling the agent.');
           return;
         }
-        addMessage(msg.role || 'assistant', msg.content || '');
-      });
+
+        const payload = await response.json();
+        sessionId = payload.session_id;
+        localStorage.setItem('openmanus.session', sessionId);
+        if (payload.summary) {
+          const parts = [`Session: ${sessionId}`];
+          if (payload.summary.steps !== undefined) {
+            parts.push(`steps: ${payload.summary.steps}`);
+          }
+          if (payload.summary.tool_calls !== undefined) {
+            parts.push(`tools: ${payload.summary.tool_calls}`);
+          }
+          updateStatus(parts.join(' | '));
+        } else {
+          updateStatus(`Session: ${sessionId}`);
+        }
+
+        (payload.messages || []).forEach((msg) => {
+          if (msg.role === 'user') {
+            return;
+          }
+          addMessage(msg.role || 'assistant', msg.content || '');
+        });
+      } catch (e) {
+        updateStatus('Error');
+        addMessage('system', 'Network error or agent failure.');
+        console.error(e);
+      } finally {
+        submitBtn.disabled = false;
+        messageEl.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
+        messageEl.focus();
+      }
     });
   </script>
 </body>
