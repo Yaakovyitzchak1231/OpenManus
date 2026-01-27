@@ -255,7 +255,9 @@ class LLM:
 
     @staticmethod
     def _hash_cache_key(payload: dict) -> str:
-        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode(
+            "utf-8"
+        )
         return hashlib.sha256(encoded).hexdigest()
 
     def count_tokens(self, text: str) -> int:
@@ -467,6 +469,29 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
+            # Generate cache key
+            cache_payload = {
+                "model": self.model,
+                "messages": messages,
+                "max_tokens": self.max_tokens,
+            }
+            if self.model not in REASONING_MODELS:
+                cache_payload["temperature"] = params["temperature"]
+
+            cache_key = self._hash_cache_key(cache_payload)
+
+            # Check cache
+            if self.enable_response_cache:
+                cached = self._cache_get(cache_key)
+                if cached:
+                    logger.info("Cache hit for LLM response")
+                    content = cached["content"]
+                    if stream:
+                        # Print cached content to stdout to simulate streaming side-effect
+                        # Note: 'ask' always returns the full string, so returning 'content' is correct.
+                        print(content)
+                    return content
+
             if not stream:
                 # Non-streaming request
                 response = await self.client.chat.completions.create(
@@ -481,7 +506,18 @@ class LLM:
                     response.usage.prompt_tokens, response.usage.completion_tokens
                 )
 
-                return response.choices[0].message.content
+                content = response.choices[0].message.content
+                # Cache the response
+                if self.enable_response_cache:
+                    self._cache_set(
+                        cache_key,
+                        {
+                            "content": content,
+                            "expires_at": time.time()
+                            + self._response_cache_ttl_seconds,
+                        },
+                    )
+                return content
 
             # Streaming request, For streaming, update estimated token count before making the request
             self.update_token_count(input_tokens)
@@ -507,6 +543,16 @@ class LLM:
                 f"Estimated completion tokens for streaming response: {completion_tokens}"
             )
             self.total_completion_tokens += completion_tokens
+
+            # Cache the response
+            if self.enable_response_cache:
+                self._cache_set(
+                    cache_key,
+                    {
+                        "content": full_response,
+                        "expires_at": time.time() + self._response_cache_ttl_seconds,
+                    },
+                )
 
             return full_response
 
@@ -639,6 +685,29 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
+            # Generate cache key
+            cache_payload = {
+                "model": self.model,
+                "messages": all_messages,
+                "max_tokens": self.max_tokens,
+            }
+            if self.model not in REASONING_MODELS:
+                cache_payload["temperature"] = params["temperature"]
+
+            cache_key = self._hash_cache_key(cache_payload)
+
+            # Check cache
+            if self.enable_response_cache:
+                cached = self._cache_get(cache_key)
+                if cached:
+                    logger.info("Cache hit for LLM response")
+                    content = cached["content"]
+                    if stream:
+                        # Print cached content to stdout to simulate streaming side-effect
+                        # Note: 'ask_with_images' always returns the full string, so returning 'content' is correct.
+                        print(content)
+                    return content
+
             # Handle non-streaming request
             if not stream:
                 response = await self.client.chat.completions.create(**params)
@@ -647,7 +716,19 @@ class LLM:
                     raise ValueError("Empty or invalid response from LLM")
 
                 self.update_token_count(response.usage.prompt_tokens)
-                return response.choices[0].message.content
+                content = response.choices[0].message.content
+
+                # Cache the response
+                if self.enable_response_cache:
+                    self._cache_set(
+                        cache_key,
+                        {
+                            "content": content,
+                            "expires_at": time.time()
+                            + self._response_cache_ttl_seconds,
+                        },
+                    )
+                return content
 
             # Handle streaming request
             self.update_token_count(input_tokens)
@@ -664,6 +745,16 @@ class LLM:
 
             if not full_response:
                 raise ValueError("Empty response from streaming LLM")
+
+            # Cache the response
+            if self.enable_response_cache:
+                self._cache_set(
+                    cache_key,
+                    {
+                        "content": full_response,
+                        "expires_at": time.time() + self._response_cache_ttl_seconds,
+                    },
+                )
 
             return full_response
 
