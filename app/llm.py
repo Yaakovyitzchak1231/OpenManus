@@ -255,7 +255,9 @@ class LLM:
 
     @staticmethod
     def _hash_cache_key(payload: dict) -> str:
-        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode(
+            "utf-8"
+        )
         return hashlib.sha256(encoded).hexdigest()
 
     def count_tokens(self, text: str) -> int:
@@ -445,6 +447,32 @@ class LLM:
             else:
                 messages = self.format_messages(messages, supports_images)
 
+            # Check cache if enabled
+            if self.enable_response_cache:
+                cache_key_payload = {
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": temperature
+                    if temperature is not None
+                    else self.temperature,
+                    "max_tokens": self.max_tokens,
+                }
+                cache_key = self._hash_cache_key(cache_key_payload)
+                cached_entry = self._cache_get(cache_key)
+                if cached_entry:
+                    content = cached_entry["content"]
+                    input_tokens = cached_entry.get("input_tokens", 0)
+                    completion_tokens = cached_entry.get("completion_tokens", 0)
+
+                    self.update_token_count(input_tokens, completion_tokens)
+                    logger.info("Cache hit for LLM response")
+
+                    if stream:
+                        print(content, flush=True)
+                        print()  # Newline after streaming
+
+                    return content
+
             # Calculate input token count
             input_tokens = self.count_message_tokens(messages)
 
@@ -467,6 +495,8 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
+            completion_tokens = 0
+
             if not stream:
                 # Non-streaming request
                 response = await self.client.chat.completions.create(
@@ -477,38 +507,53 @@ class LLM:
                     raise ValueError("Empty or invalid response from LLM")
 
                 # Update token counts
-                self.update_token_count(
-                    response.usage.prompt_tokens, response.usage.completion_tokens
+                input_tokens = response.usage.prompt_tokens
+                completion_tokens = response.usage.completion_tokens
+                self.update_token_count(input_tokens, completion_tokens)
+
+                content = response.choices[0].message.content
+
+            else:
+                # Streaming request, For streaming, update estimated token count before making the request
+                self.update_token_count(input_tokens)
+
+                response = await self.client.chat.completions.create(
+                    **params, stream=True
                 )
 
-                return response.choices[0].message.content
+                collected_messages = []
+                completion_text = ""
+                async for chunk in response:
+                    chunk_message = chunk.choices[0].delta.content or ""
+                    collected_messages.append(chunk_message)
+                    completion_text += chunk_message
+                    print(chunk_message, end="", flush=True)
 
-            # Streaming request, For streaming, update estimated token count before making the request
-            self.update_token_count(input_tokens)
+                print()  # Newline after streaming
+                full_response = "".join(collected_messages).strip()
+                if not full_response:
+                    raise ValueError("Empty response from streaming LLM")
 
-            response = await self.client.chat.completions.create(**params, stream=True)
+                # estimate completion tokens for streaming response
+                completion_tokens = self.count_tokens(completion_text)
+                logger.info(
+                    f"Estimated completion tokens for streaming response: {completion_tokens}"
+                )
+                self.total_completion_tokens += completion_tokens
 
-            collected_messages = []
-            completion_text = ""
-            async for chunk in response:
-                chunk_message = chunk.choices[0].delta.content or ""
-                collected_messages.append(chunk_message)
-                completion_text += chunk_message
-                print(chunk_message, end="", flush=True)
+                content = full_response
 
-            print()  # Newline after streaming
-            full_response = "".join(collected_messages).strip()
-            if not full_response:
-                raise ValueError("Empty response from streaming LLM")
+            # Save to cache
+            if self.enable_response_cache:
+                cache_payload = {
+                    "content": content,
+                    "input_tokens": input_tokens,
+                    "completion_tokens": completion_tokens,
+                    "expires_at": time.time() + self._response_cache_ttl_seconds,
+                }
+                self._cache_set(cache_key, cache_payload)
 
-            # estimate completion tokens for streaming response
-            completion_tokens = self.count_tokens(completion_text)
-            logger.info(
-                f"Estimated completion tokens for streaming response: {completion_tokens}"
-            )
-            self.total_completion_tokens += completion_tokens
-
-            return full_response
+            return content
 
         except TokenLimitExceeded:
             # Re-raise token limit errors without logging
@@ -618,6 +663,32 @@ class LLM:
             else:
                 all_messages = formatted_messages
 
+            # Check cache if enabled
+            if self.enable_response_cache:
+                cache_key_payload = {
+                    "model": self.model,
+                    "messages": all_messages,
+                    "temperature": temperature
+                    if temperature is not None
+                    else self.temperature,
+                    "max_tokens": self.max_tokens,
+                }
+                cache_key = self._hash_cache_key(cache_key_payload)
+                cached_entry = self._cache_get(cache_key)
+                if cached_entry:
+                    content = cached_entry["content"]
+                    input_tokens = cached_entry.get("input_tokens", 0)
+                    completion_tokens = cached_entry.get("completion_tokens", 0)
+
+                    self.update_token_count(input_tokens, completion_tokens)
+                    logger.info("Cache hit for LLM response")
+
+                    if stream:
+                        print(content, flush=True)
+                        print()  # Newline after streaming
+
+                    return content
+
             # Calculate tokens and check limits
             input_tokens = self.count_message_tokens(all_messages)
             if not self.check_token_limit(input_tokens):
@@ -639,6 +710,8 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
+            completion_tokens = 0
+
             # Handle non-streaming request
             if not stream:
                 response = await self.client.chat.completions.create(**params)
@@ -646,26 +719,51 @@ class LLM:
                 if not response.choices or not response.choices[0].message.content:
                     raise ValueError("Empty or invalid response from LLM")
 
-                self.update_token_count(response.usage.prompt_tokens)
-                return response.choices[0].message.content
+                input_tokens = response.usage.prompt_tokens
+                completion_tokens = response.usage.completion_tokens
+                self.update_token_count(input_tokens, completion_tokens)
 
-            # Handle streaming request
-            self.update_token_count(input_tokens)
-            response = await self.client.chat.completions.create(**params)
+                content = response.choices[0].message.content
 
-            collected_messages = []
-            async for chunk in response:
-                chunk_message = chunk.choices[0].delta.content or ""
-                collected_messages.append(chunk_message)
-                print(chunk_message, end="", flush=True)
+            else:
+                # Handle streaming request
+                self.update_token_count(input_tokens)
+                response = await self.client.chat.completions.create(**params)
 
-            print()  # Newline after streaming
-            full_response = "".join(collected_messages).strip()
+                collected_messages = []
+                completion_text = ""
+                async for chunk in response:
+                    chunk_message = chunk.choices[0].delta.content or ""
+                    collected_messages.append(chunk_message)
+                    completion_text += chunk_message
+                    print(chunk_message, end="", flush=True)
 
-            if not full_response:
-                raise ValueError("Empty response from streaming LLM")
+                print()  # Newline after streaming
+                full_response = "".join(collected_messages).strip()
 
-            return full_response
+                if not full_response:
+                    raise ValueError("Empty response from streaming LLM")
+
+                # estimate completion tokens for streaming response
+                completion_tokens = self.count_tokens(completion_text)
+                logger.info(
+                    f"Estimated completion tokens for streaming response: {completion_tokens}"
+                )
+                self.total_completion_tokens += completion_tokens
+
+                content = full_response
+
+            # Save to cache
+            if self.enable_response_cache:
+                cache_payload = {
+                    "content": content,
+                    "input_tokens": input_tokens,
+                    "completion_tokens": completion_tokens,
+                    "expires_at": time.time() + self._response_cache_ttl_seconds,
+                }
+                self._cache_set(cache_key, cache_payload)
+
+            return content
 
         except TokenLimitExceeded:
             raise
