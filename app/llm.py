@@ -467,6 +467,24 @@ class LLM:
                     temperature if temperature is not None else self.temperature
                 )
 
+            # Check cache if enabled
+            cache_key = None
+            if self.enable_response_cache:
+                cache_payload = {
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": params.get("temperature"),
+                    "max_tokens": self.max_tokens,
+                }
+                cache_key = self._hash_cache_key(cache_payload)
+                cached_entry = self._cache_get(cache_key)
+                if cached_entry:
+                    response_content = cached_entry["content"]
+                    # If streaming was requested, print to stdout to match behavior
+                    if stream:
+                        print(response_content)
+                    return response_content
+
             if not stream:
                 # Non-streaming request
                 response = await self.client.chat.completions.create(
@@ -481,7 +499,16 @@ class LLM:
                     response.usage.prompt_tokens, response.usage.completion_tokens
                 )
 
-                return response.choices[0].message.content
+                content = response.choices[0].message.content
+                if self.enable_response_cache and cache_key:
+                    self._cache_set(
+                        cache_key,
+                        {
+                            "content": content,
+                            "expires_at": time.time() + self._response_cache_ttl_seconds,
+                        },
+                    )
+                return content
 
             # Streaming request, For streaming, update estimated token count before making the request
             self.update_token_count(input_tokens)
@@ -507,6 +534,15 @@ class LLM:
                 f"Estimated completion tokens for streaming response: {completion_tokens}"
             )
             self.total_completion_tokens += completion_tokens
+
+            if self.enable_response_cache and cache_key:
+                self._cache_set(
+                    cache_key,
+                    {
+                        "content": full_response,
+                        "expires_at": time.time() + self._response_cache_ttl_seconds,
+                    },
+                )
 
             return full_response
 
