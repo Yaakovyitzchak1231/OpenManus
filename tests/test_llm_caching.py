@@ -1,11 +1,14 @@
-import pytest
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 
 # Mock dependencies
 sys.modules["app.utils.cost_tracker"] = MagicMock()
 
 from app.llm import LLM
+
 
 @pytest.mark.asyncio
 async def test_llm_caching():
