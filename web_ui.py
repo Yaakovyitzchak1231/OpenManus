@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 from uuid import uuid4
 
@@ -11,6 +10,7 @@ from pydantic import BaseModel
 
 from app.config import config
 from app.harness.recording import RunRecorder
+
 
 if TYPE_CHECKING:
     from app.agent.manus import Manus
@@ -305,7 +305,12 @@ def _html_page() -> str:
     const formEl = document.getElementById('chat-form');
     const messageEl = document.getElementById('message');
     const statusEl = document.getElementById('status');
-    let sessionId = localStorage.getItem('openmanus.session');
+    let sessionId = null;
+    try {
+      sessionId = localStorage.getItem('openmanus.session');
+    } catch (e) {
+      // ignore
+    }
 
     const addMessage = (role, content) => {
       const wrapper = document.createElement('div');
@@ -333,6 +338,13 @@ def _html_page() -> str:
       updateStatus(`Session: ${sessionId}`);
     }
 
+    messageEl.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        formEl.requestSubmit();
+      }
+    });
+
     formEl.addEventListener('submit', async (event) => {
       event.preventDefault();
       const message = messageEl.value.trim();
@@ -358,7 +370,11 @@ def _html_page() -> str:
 
       const payload = await response.json();
       sessionId = payload.session_id;
-      localStorage.setItem('openmanus.session', sessionId);
+      try {
+        localStorage.setItem('openmanus.session', sessionId);
+      } catch (e) {
+        // ignore
+      }
       if (payload.summary) {
         const parts = [`Session: ${sessionId}`];
         if (payload.summary.steps !== undefined) {
